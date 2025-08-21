@@ -1,18 +1,19 @@
+// Header.jsx
 import React from "react";
-import { Menu } from "lucide-react"; // dari lucide-react
+import { Menu } from "lucide-react";
 
-const Header = ({ onMenuClick }) => {
+export default function Header({ toggleSidebar }) {
   return (
-    <header className="flex items-center justify-between px-4 py-3 bg-white shadow">
-      <button 
-        onClick={onMenuClick} 
-        className="p-2 rounded-md hover:bg-gray-100 lg:hidden"
+    <header className="flex items-center justify-between p-4 bg-white shadow-md">
+      {/* Tombol hamburger selalu ada */}
+      <button
+        onClick={toggleSidebar}
+        className="text-gray-700 hover:text-green-700"
       >
-        <Menu className="w-6 h-6" />
+        <Menu size={28} />
       </button>
-      <h1 className="text-lg font-bold">SiTani</h1>
+
+      <h1 className="text-lg font-bold text-[#004030]">Keuangan SiTani</h1>
     </header>
   );
-};
-
-export default Header;
+}

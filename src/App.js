@@ -6,6 +6,8 @@ import SyaratDanKetentuan from "./pages/SyaratDanKetentuan";
 import LupaKataSandi from "./pages/LupaKataSandi";
 import LandingPage from "./pages/LandingPage";
 import PanduanPage from "./pages/PanduanPage";
+import FAQ from "./component/FAQ";
+import Footer from "./component/Footer";
 function App() {
   return (
     <Router>
