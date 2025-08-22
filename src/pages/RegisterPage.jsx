@@ -1,11 +1,13 @@
-// RegisterPage.jsx
 import React, { useState } from "react";
 import { FaUser, FaLock } from "react-icons/fa";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
 import IconLogo from "../assets/IconLogo.png";
 import GambarSawah from "../assets/GambarSawah.jpg";
 
 export default function RegisterPage() {
+  const navigate = useNavigate();
+
   const [form, setForm] = useState({
     nama: "",
     email: "",
@@ -19,9 +21,7 @@ export default function RegisterPage() {
     const { name, value, type, checked } = e.target;
 
     // Khusus nomor telepon hanya angka
-    if (name === "telepon") {
-      if (!/^\d*$/.test(value)) return; // tolak input kalau bukan angka
-    }
+    if (name === "telepon" && !/^\d*$/.test(value)) return;
 
     setForm({
       ...form,
@@ -29,90 +29,75 @@ export default function RegisterPage() {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validasi semua wajib diisi
-    if (
-      !form.nama ||
-      !form.email ||
-      !form.telepon ||
-      !form.password ||
-      !form.konfirmasiPassword
-    ) {
+    // Validasi
+    if (!form.nama || !form.email || !form.telepon || !form.password || !form.konfirmasiPassword) {
       alert("Semua field wajib diisi!");
       return;
     }
 
-    // Validasi nomor telepon minimal 10 digit (opsional)
     if (form.telepon.length < 10) {
       alert("Nomor telepon minimal 10 digit!");
       return;
     }
 
-    // Validasi password
     const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
     if (!passwordRegex.test(form.password)) {
-      alert(
-        "Password minimal 8 karakter dan harus mengandung kombinasi huruf dan angka!"
-      );
+      alert("Password minimal 8 karakter dan harus mengandung kombinasi huruf dan angka!");
       return;
     }
 
-    // Validasi konfirmasi password
     if (form.password !== form.konfirmasiPassword) {
       alert("Konfirmasi password tidak cocok!");
       return;
     }
 
-    // Validasi setuju syarat
     if (!form.setuju) {
       alert("Anda harus menyetujui syarat dan ketentuan!");
       return;
     }
 
-    console.log("Form berhasil dikirim:", form);
-    alert("Pendaftaran berhasil!");
+    try {
+      await axios.post("http://localhost:3000/api/auth/register", {
+        username: form.nama,
+        email: form.email,
+        telepon: form.telepon,
+        password: form.password,
+      });
+      alert("Pendaftaran berhasil! Silakan login.");
+      navigate("/login");
+    } catch (err) {
+      console.error(err);
+      alert("Pendaftaran gagal, coba lagi!");
+    }
   };
 
   return (
     <div className="min-h-screen flex">
       {/* Bagian kiri */}
       <div className="hidden md:flex w-1/2">
-        <img
-          src={GambarSawah}
-          alt="Sawah"
-          className="w-full h-full object-cover"
-        />
+        <img src={GambarSawah} alt="Sawah" className="w-full h-full object-cover" />
       </div>
 
       {/* Bagian kanan */}
       <div className="flex flex-col justify-center w-full md:w-1/2 px-8 md:px-16 bg-white">
         {/* Logo */}
         <div className="flex items-center justify-center mb-6">
-          <img
-            src={IconLogo}
-            alt="Logo"
-            className="w-10 h-10 object-contain mr-2"
-          />
+          <img src={IconLogo} alt="Logo" className="w-10 h-10 object-contain mr-2" />
           <span className="text-2xl font-bold text-[#004030]">SiTani</span>
         </div>
 
-        {/* Judul */}
-        <h2 className="text-4xl font-bold text-[#004030] mb-2 text-center">
-          Daftar Akun Baru
-        </h2>
+        <h2 className="text-4xl font-bold text-[#004030] mb-2 text-center">Daftar Akun Baru</h2>
         <p className="text-lg font-semibold text-[#004030] mb-6 text-center">
           Mulai kelola keuangan pertanian Anda secara praktis dan aman.
         </p>
 
-        {/* Form */}
         <form className="space-y-4" onSubmit={handleSubmit}>
           {/* Nama */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nama Lengkap
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
             <div className="flex items-center border border-gray-300 rounded-full px-4 py-2">
               <FaUser className="text-gray-400 mr-2" />
               <input
@@ -129,9 +114,7 @@ export default function RegisterPage() {
 
           {/* Email */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Alamat Email
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Alamat Email</label>
             <div className="flex items-center border border-gray-300 rounded-full px-4 py-2">
               <FaUser className="text-gray-400 mr-2" />
               <input
@@ -146,11 +129,9 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* Nomor Telepon */}
+          {/* Telepon */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nomor Telepon
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nomor Telepon</label>
             <div className="flex items-center border border-gray-300 rounded-full px-4 py-2">
               <FaUser className="text-gray-400 mr-2" />
               <input
@@ -167,9 +148,7 @@ export default function RegisterPage() {
 
           {/* Password */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Kata Sandi
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Kata Sandi</label>
             <div className="flex items-center border border-gray-300 rounded-full px-4 py-2">
               <FaLock className="text-gray-400 mr-2" />
               <input
@@ -182,16 +161,12 @@ export default function RegisterPage() {
                 required
               />
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Minimal 8 karakter, kombinasi huruf dan angka
-            </p>
+            <p className="text-xs text-gray-500 mt-1">Minimal 8 karakter, kombinasi huruf dan angka</p>
           </div>
 
           {/* Konfirmasi Password */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Konfirmasi Kata Sandi
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Konfirmasi Kata Sandi</label>
             <div className="flex items-center border border-gray-300 rounded-full px-4 py-2">
               <FaLock className="text-gray-400 mr-2" />
               <input
@@ -217,10 +192,7 @@ export default function RegisterPage() {
                 className="mr-2"
               />
               Saya setuju dengan{" "}
-              <Link
-                to="/syarat-dan-ketentuan"
-                className="text-[#004030] hover:underline ml-1"
-              >
+              <Link to="/syarat-dan-ketentuan" className="text-[#004030] hover:underline ml-1">
                 Syarat dan Ketentuan
               </Link>
             </label>
@@ -235,27 +207,11 @@ export default function RegisterPage() {
           </button>
         </form>
 
-        {/* Link Masuk */}
         <p className="text-sm text-gray-600 text-center mt-4">
           Sudah punya akun?{" "}
           <Link to="/login" className="text-[#004030] hover:underline">
             Masuk di sini
           </Link>
-        </p>
-
-        {/* Google */}
-        <p className="text-sm text-gray-600 text-center mt-4">
-          Atau{" "}
-          <a
-            href="#"
-            className="text-[#004030] hover:underline"
-            onClick={(e) => {
-              e.preventDefault();
-              console.log("Integrasi Google Login belum diimplementasikan");
-            }}
-          >
-            Daftar dengan Google
-          </a>
         </p>
       </div>
     </div>
