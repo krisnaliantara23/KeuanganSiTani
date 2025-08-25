@@ -31,7 +31,7 @@ export default function LoginPage() {
 
     // 👉 mapping email -> username
     const payload = {
-      username: form.email,
+      identifier: form.email,
       password: form.password,
     };
 

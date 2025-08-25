@@ -5,7 +5,6 @@ import { Menu } from "lucide-react";
 export default function Header({ toggleSidebar }) {
   return (
     <header className="flex items-center justify-between p-4 bg-white shadow-md">
-      {/* Tombol hamburger selalu ada */}
       <button
         onClick={toggleSidebar}
         className="text-gray-700 hover:text-green-700"
