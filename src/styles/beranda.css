@@ -1,0 +1,128 @@
+/* === HEADER SALDO === */
+.header-saldo {
+  @apply bg-[#004030] text-white rounded-2xl p-10 shadow-md;
+}
+
+.header-saldo h2 {
+  @apply text-lg;
+}
+
+.header-saldo p {
+  @apply text-3xl font-bold;
+}
+
+/* === SUMMARY CARDS === */
+.summary-card {
+  @apply shadow-md rounded-l;
+}
+
+.summary-card p {
+  @apply text-gray-500 text-sm;
+}
+
+.summary-card h3 {
+  @apply text-2xl font-bold;
+}
+
+.summary-card span {
+  @apply text-sm;
+}
+
+/* === CHART SECTION === */
+.chart-card {
+  @apply shadow-md rounded-xl;
+}
+
+.chart-title {
+  @apply font-bold mb-4;
+}
+
+/* === TRANSAKSI TERAKHIR === */
+.transaksi-card {
+  @apply shadow-md rounded-xl;
+}
+
+.transaksi-header {
+  @apply flex justify-between items-center mb-4;
+}
+
+.transaksi-header h3 {
+  @apply font-bold;
+}
+
+.transaksi-header button {
+  @apply text-[green-600] text-sm hover:underline;
+}
+
+.transaksi-list {
+  @apply space-y-3 text-sm;
+}
+
+.transaksi-item {
+  @apply flex justify-between items-center border-b pb-2;
+}
+
+.transaksi-item p {
+  @apply font-medium;
+}
+
+.transaksi-item span {
+  @apply text-gray-500 text-xs;
+}
+
+.transaksi-nominal-plus {
+  @apply font-bold text-green-600;
+}
+
+.transaksi-nominal-minus {
+  @apply font-bold text-red-600;
+}
+/* Summary card dengan icon */
+.summary-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.summary-icon {
+  padding: 0.8rem;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Chart placeholder */
+.chart-placeholder {
+  height: 12rem;
+  background-color: #f3f4f6;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* Tombol Lihat Semua */
+.lihat-semua-btn {
+  background: transparent;
+  border: none;
+  color: #2563eb;
+  font-weight: 500;
+  cursor: pointer;
+}
+.lihat-semua-btn:hover {
+  text-decoration: underline;
+}
+.sidebar-link {
+  @apply flex items-center space-x-2 px-3 py-2 rounded-md text-gray-700 hover:bg-green-50 hover:text-green-700 transition;
+}
+
+.sidebar-link.active {
+  @apply bg-green-100 text-green-700 font-medium;
+}
+
+.footer{
+    @apply bg-[#004030] text-white py-6 px-10;
+}

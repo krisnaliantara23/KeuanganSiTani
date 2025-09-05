@@ -1,0 +1,92 @@
+/* src/styles/landing.css */
+
+/* Container */
+.landing-container {
+  @apply flex flex-col min-h-screen;
+}
+
+/* Navbar */
+.navbar {
+  @apply w-full flex justify-between items-center p-4 bg-white shadow-md fixed top-0 left-0 z-50;
+}
+.navbar-logo {
+  @apply flex items-center space-x-2;
+}
+.logo-img {
+  @apply h-8 w-8;
+}
+.logo-text {
+  @apply text-xl font-bold text-[#004030];
+}
+.navbar-links {
+  @apply space-x-2;
+}
+.login-link {
+  @apply text-[#004030] font-medium hover:underline;
+}
+.register-btn {
+  @apply bg-[#004030] text-white px-4 py-2 rounded-lg hover:bg-[#3b7a67];
+}
+
+/* Hero Section */
+.hero {
+  @apply h-screen bg-cover bg-center relative text-white flex items-center justify-center;
+}
+.hero-overlay {
+  @apply absolute inset-0 bg-black bg-opacity-40;
+}
+.hero-content {
+  @apply relative z-10 text-center px-6;
+}
+.hero-title {
+  @apply text-5xl font-bold mb-4;
+}
+.hero-subtitle {
+  @apply max-w-2xl mb-6 text-lg mx-auto;
+}
+.hero-buttons {
+  @apply space-x-4;
+}
+.primary-btn {
+  @apply bg-[#004030] text-white px-8 py-3 rounded-lg text-lg hover:bg-[#3b7a67] transition;
+}
+.secondary-btn {
+  @apply bg-[#004030] px-8 py-3 rounded-lg text-lg hover:bg-gray-600 transition text-white;
+}
+
+/* Scroll Button */
+.scroll-btn {
+  @apply absolute bottom-6 left-1/2 transform -translate-x-1/2 text-white animate-bounce;
+}
+.scroll-icon {
+  @apply h-8 w-8;
+}
+
+/* Fitur Section */
+.fitur-section {
+  @apply py-16 bg-white text-center;
+}
+.fitur-title {
+  @apply text-3xl font-bold text-[#004030] mb-8;
+}
+.fitur-grid {
+  @apply grid grid-cols-1 md:grid-cols-3 gap-8 px-6 max-w-6xl mx-auto;
+}
+.fitur-card-title {
+  @apply text-xl font-semibold mb-2;
+}
+
+/* Footer */
+.footer {
+  @apply bg-[#FFFFFF] text-white py-6 px-10;
+}
+.footer-container {
+  @apply max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between;
+}
+
+.footer-logo {
+  @apply flex items-center space-x-2;
+}
+.footer-copy {
+  @apply mt-4 md:mt-0 text-[#004030] text-sm;
+}

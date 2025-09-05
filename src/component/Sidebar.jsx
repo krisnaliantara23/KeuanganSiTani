@@ -1,51 +1,88 @@
-// Sidebar.jsx
-import { X } from "lucide-react";
-import { NavLink } from "react-router-dom";
+// src/component/Sidebar.jsx
+import { useState } from "react";
+import {
+  Home,
+  DollarSign,
+  ShoppingCart,
+  FileText,
+  Book,
+  Settings,
+  User,
+  Menu,
+  X,
+} from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 
-export default function Sidebar({ isOpen, toggleSidebar }) {
+export default function Sidebar() {
+  const [isOpen, setIsOpen] = useState(false);
+  const location = useLocation();
+
+  const toggleSidebar = () => setIsOpen(!isOpen);
+
   const menuItems = [
-    { path: "/beranda", label: "Dashboard" },
-    { path: "/pendapatan", label: "Pendapatan" },
-    { path: "/pengeluaran", label: "Pengeluaran" },
-    { path: "/laporan", label: "Laporan" },
-    { path: "/panduan", label: "Panduan" },
-    { path: "/pengaturan", label: "Pengaturan" },
+    { path: "/beranda", label: "Dashboard", icon: Home },
+    { path: "/pendapatan", label: "Pendapatan", icon: DollarSign },
+    { path: "/pengeluaran", label: "Pengeluaran", icon: ShoppingCart },
+    { path: "/laporan", label: "Laporan", icon: FileText },
+    { path: "/panduan", label: "Panduan", icon: Book },
+    { path: "/pengaturan", label: "Pengaturan", icon: Settings },
+    { path: "/admin", label: "Panel Admin", icon: User },
   ];
 
   return (
-    <div
-      className={`fixed top-0 left-0 h-full w-64 bg-blue-600 text-white shadow-lg 
-        transform ${isOpen ? "translate-x-0" : "-translate-x-full"} 
-        transition-transform duration-300 ease-in-out 
-        md:translate-x-0 md:static md:block z-50`}
-    >
-      {/* Header Sidebar */}
-      <div className="flex justify-between items-center p-4 border-b border-blue-500">
-        <h2 className="text-lg font-bold">Menu</h2>
-        {/* Tombol close (muncul hanya di mobile) */}
-        <button onClick={toggleSidebar} className="md:hidden">
-          <X size={24} />
-        </button>
-      </div>
+    <>
+      {/* Hamburger Button */}
+      <button
+        className="md:hidden fixed top-4 left-4 z-50 bg-green-600 text-white p-2 rounded-lg shadow-lg"
+        onClick={toggleSidebar}
+      >
+        {isOpen ? <X size={20} /> : <Menu size={20} />}
+      </button>
 
-      {/* Menu navigasi */}
-      <ul className="space-y-2 p-4">
-        {menuItems.map((item) => (
-          <li key={item.path}>
-            <NavLink
-              to={item.path}
-              className={({ isActive }) =>
-                `block p-2 rounded ${
-                  isActive ? "bg-blue-700 font-semibold" : "hover:bg-blue-500"
-                }`
-              }
-              onClick={toggleSidebar} // otomatis close setelah klik di mobile
-            >
-              {item.label}
-            </NavLink>
-          </li>
-        ))}
-      </ul>
-    </div>
+      {/* Sidebar */}
+      <aside
+        className={`fixed top-0 left-0 h-full w-64 bg-white shadow-md flex flex-col justify-between p-4 transform transition-transform duration-300 ease-in-out z-40
+        ${isOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
+      >
+        {/* Logo */}
+        <div>
+          <div className="flex items-center space-x-2 mb-6">
+            <div className="bg-green-100 p-2 rounded-lg">
+              <Home className="text-green-600" size={20} />
+            </div>
+            <div>
+              
+              <h1 className="text-lg font-bold text-gray-800">SiTani</h1>
+              <p className="text-xs text-gray-500">Kelola Keuangan Pertanian</p>
+            </div>
+          </div>
+
+          {/* Menu */}
+          <nav className="space-y-2">
+            {menuItems.map(({ path, label, icon: Icon }) => (
+              <Link
+                key={path}
+                to={path}
+                className={`sidebar-link ${
+                  location.pathname === path ? "active" : ""
+                }`}
+                onClick={() => setIsOpen(false)} // close kalau mobile
+              >
+                <Icon size={18} /> {label}
+              </Link>
+            ))}
+          </nav>
+        </div>
+
+        {/* Profil User */}
+        <div className="bg-green-100 rounded-lg p-3 flex items-center space-x-2">
+          <User className="text-green-600" size={20} />
+          <div>
+            <p className="text-sm font-medium">Budi Santoso</p>
+            <p className="text-xs text-gray-500">budisantoso@email.com</p>
+          </div>
+        </div>
+      </aside>
+    </>
   );
 }

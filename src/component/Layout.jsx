@@ -10,7 +10,7 @@ export default function Layout({ children }) {
   return (
     <div className="flex min-h-screen bg-gray-100">
       {/* Sidebar */}
-      <Sidebar isOpen={isOpen} toggleSidebar={toggleSidebar} />
+      {/* <Sidebar isOpen={isOpen} toggleSidebar={toggleSidebar} /> */}
 
       {/* Main area */}
       <div className="flex flex-col flex-1">

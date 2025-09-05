@@ -1,0 +1,49 @@
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;   /* full screen */
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4); /* transparan supaya sidebar tetap kelihatan */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 50; /* cukup tinggi supaya di atas konten */
+}
+
+/* Modal Box */
+.modal-box {
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  width: 400px;
+  max-width: 90%;
+}
+
+/* Form elemen */
+.modal-box select,
+.modal-box input,
+.modal-box textarea {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+/* Tombol */
+.btn-cancel {
+  background: #ddd;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-simpan {
+  background: #16a34a;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 6px;
+  cursor: pointer;
+}

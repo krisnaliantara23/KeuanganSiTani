@@ -201,7 +201,7 @@ export default function RegisterPage() {
           {/* Tombol */}
           <button
             type="submit"
-            className="w-full bg-[#4A9782] text-white py-3 rounded-full hover:bg-[#3e826f] transition font-semibold"
+            className="w-full bg-[#004030] text-white py-3 rounded-full hover:bg-[#3e826f] transition font-semibold"
           >
             Daftar Sekarang
           </button>
