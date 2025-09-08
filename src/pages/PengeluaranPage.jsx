@@ -68,15 +68,23 @@ export default function PengeluaranPage() {
           <div className="modal-box">
             <h3 className="text-xl font-bold mb-4">Tambah Pengeluaran</h3>
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-              <input
-                type="text"
-                placeholder="Kategori Pengeluaran"
+              <select
                 value={form.kategori}
                 onChange={(e) =>
                   setForm({ ...form, kategori: e.target.value })
                 }
+                className="p-2 border rounded"
                 required
-              />
+              >
+                <option value="" disabled>Pilih Kategori</option>
+                <option value="Bibit">Bibit</option>
+                <option value="Pupuk">Pupuk</option>
+                <option value="Pestisida">Pestisida</option>
+                <option value="Alat & Mesin">Alat & Mesin</option>
+                <option value="Upah Tenaga Kerja">Upah Tenaga Kerja</option>
+                <option value="Transportasi">Transportasi</option>
+                <option value="Lain-lain">Lain-lain</option>
+              </select>
 
               <input
                 type="number"
