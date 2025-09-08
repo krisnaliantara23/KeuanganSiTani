@@ -15,7 +15,7 @@ export default function SyaratDanKetentuan() {
         <div className="space-y-4 text-gray-700 leading-relaxed">
           <p>
             Selamat datang di <span className="font-semibold">SiTani</span>. 
-            Dengan menggunakan aplikasi ini, Anda menyetujui syarat dan ketentuan yang berlaku. 
+            Dengan menggunakan website ini, Anda menyetujui syarat dan ketentuan yang berlaku. 
             Harap membaca dengan seksama sebelum menggunakan layanan kami.
           </p>
 

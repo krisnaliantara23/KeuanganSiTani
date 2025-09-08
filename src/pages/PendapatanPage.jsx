@@ -1,7 +1,4 @@
 import React, { useEffect, useState } from "react";
-import Sidebar from "../component/Sidebar";
-import Header from "../component/Header";
-import Footer from "../component/Footer";
 import { getPendapatan, addPendapatan } from "../services/financeService";
 import "../styles/pendapatan.css";
 
@@ -42,52 +39,45 @@ export default function PendapatanPage() {
   }
 
   return (
-    <div className="flex">
-      <Sidebar />
-      <div className="flex-1 p-6 bg-gray-50 min-h-screen">
-        <Header />
+    <>
+      {/* Header section */}
+      <div className="bg-white rounded-xl shadow-md p-6 mb-6 flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Pendapatan Pertanian</h2>
+        <button
+          className="bg-green-600 text-white px-4 py-2 rounded"
+          onClick={() => setShowModal(true)}
+        >
+          + Tambah Pendapatan
+        </button>
+      </div>
 
-        {/* Header section */}
-        <div className="bg-white rounded-xl shadow-md p-6 mb-6 flex justify-between items-center">
-          <h2 className="text-2xl font-bold">Pendapatan Pertanian</h2>
-          <button
-            className="bg-green-600 text-white px-4 py-2 rounded"
-            onClick={() => setShowModal(true)}
-          >
-            + Tambah Pendapatan
-          </button>
-        </div>
-
-        {/* Tabel */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h3 className="text-lg font-semibold mb-4">Riwayat Pendapatan</h3>
-          <table className="w-full text-left border">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="p-2">Kategori</th>
-                <th className="p-2">Jumlah</th>
-                <th className="p-2">Deskripsi</th>
-                <th className="p-2">Tanggal</th>
+      {/* Tabel */}
+      <div className="bg-white rounded-xl shadow-md p-6">
+        <h3 className="text-lg font-semibold mb-4">Riwayat Pendapatan</h3>
+        <table className="w-full text-left border">
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="p-2">Kategori</th>
+              <th className="p-2">Jumlah</th>
+              <th className="p-2">Deskripsi</th>
+              <th className="p-2">Tanggal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pendapatan.map((item) => (
+              <tr key={item.id_laporan} className="border-t">
+                <td className="p-2">{item.kategori_id}</td>
+                <td className="p-2">
+                  Rp {item.debit?.toLocaleString("id-ID")}
+                </td>
+                <td className="p-2">{item.deskripsi}</td>
+                <td className="p-2">
+                  {new Date(item.tanggal).toLocaleDateString("id-ID")}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {pendapatan.map((item) => (
-                <tr key={item.id_laporan} className="border-t">
-                  <td className="p-2">{item.kategori_id}</td>
-                  <td className="p-2">
-                    Rp {item.debit?.toLocaleString("id-ID")}
-                  </td>
-                  <td className="p-2">{item.deskripsi}</td>
-                  <td className="p-2">
-                    {new Date(item.tanggal).toLocaleDateString("id-ID")}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <Footer />
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {/* Modal */}
@@ -148,6 +138,6 @@ export default function PendapatanPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

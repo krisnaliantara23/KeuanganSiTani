@@ -1,176 +1,124 @@
-// src/pages/BerandaPage.jsx
-import { useEffect, useState } from "react";
-import { Card, CardContent } from "../component/ui/Card";
-import "../styles/beranda.css";
-import { FaArrowUp, FaArrowDown, FaChartLine } from "react-icons/fa";
-import Sidebar from "../component/Sidebar";
+import React, { useMemo } from 'react';
+import { useData } from '../context/DataContext';
+import SummaryCard from '../component/SummaryCard';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { ArrowUpRight, ArrowDownRight, DollarSign } from 'lucide-react';
 
 export default function BerandaPage() {
-  const [saldo, setSaldo] = useState(null);
-  const [summary, setSummary] = useState({});
-  const [transaksi, setTransaksi] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { pendapatan, pengeluaran, loading, error } = useData();
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        setError(null);
+  // Calculate summaries for the current month
+  const { totalPendapatanBulanIni, totalPengeluaranBulanIni, saldoAkhir } = useMemo(() => {
+    const now = new Date();
+    const month = now.getMonth();
+    const year = now.getFullYear();
 
-        const resSaldo = await fetch("http://localhost:5000/api/saldo");
-        const dataSaldo = await resSaldo.json();
-        setSaldo(dataSaldo.saldo);
+    const totalPendapatan = pendapatan.reduce((sum, item) => sum + item.jumlah, 0);
+    const totalPengeluaran = pengeluaran.reduce((sum, item) => sum + item.jumlah, 0);
 
-        const resSummary = await fetch("http://localhost:5000/api/summary");
-        const dataSummary = await resSummary.json();
-        setSummary(dataSummary);
+    const totalPendapatanBulanIni = pendapatan
+      .filter(p => {
+        const tgl = new Date(p.id);
+        return tgl.getMonth() === month && tgl.getFullYear() === year;
+      })
+      .reduce((sum, item) => sum + item.jumlah, 0);
 
-        const resTransaksi = await fetch(
-          "http://localhost:5000/api/transaksi?limit=3"
-        );
-        const dataTransaksi = await resTransaksi.json();
-        setTransaksi(dataTransaksi);
-      } catch (err) {
-        console.error("Gagal fetch data:", err);
-        setError("Gagal memuat data, coba lagi nanti.");
-      } finally {
-        setLoading(false);
-      }
+    const totalPengeluaranBulanIni = pengeluaran
+      .filter(p => {
+        const tgl = new Date(p.id);
+        return tgl.getMonth() === month && tgl.getFullYear() === year;
+      })
+      .reduce((sum, item) => sum + item.jumlah, 0);
+
+    return { totalPendapatanBulanIni, totalPengeluaranBulanIni, saldoAkhir: totalPendapatan - totalPengeluaran };
+  }, [pendapatan, pengeluaran]);
+
+  // Prepare data for the chart (last 6 months)
+  const chartData = useMemo(() => {
+    const data = [];
+    const today = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const month = d.getMonth();
+      const year = d.getFullYear();
+      const monthName = d.toLocaleString('default', { month: 'short' });
+
+      const p = pendapatan
+        .filter(item => { const tgl = new Date(item.id); return tgl.getMonth() === month && tgl.getFullYear() === year; })
+        .reduce((sum, item) => sum + item.jumlah, 0);
+
+      const k = pengeluaran
+        .filter(item => { const tgl = new Date(item.id); return tgl.getMonth() === month && tgl.getFullYear() === year; })
+        .reduce((sum, item) => sum + item.jumlah, 0);
+      
+      data.push({ name: monthName, Pendapatan: p, Pengeluaran: k });
     }
+    return data;
+  }, [pendapatan, pengeluaran]);
 
-    fetchData();
-  }, []);
+  // Get last 5 transactions
+  const recentTransactions = useMemo(() => {
+    const all = [...pendapatan.map(p => ({...p, type: 'pendapatan'})), ...pengeluaran.map(e => ({...e, type: 'pengeluaran'}))];
+    return all.sort((a, b) => new Date(b.id) - new Date(a.id)).slice(0, 5);
+  }, [pendapatan, pengeluaran]);
+
+  if (loading) {
+    return <div className="text-center p-8">Memuat data...</div>;
+  }
+
+  if (error) {
+    return <div className="p-4 bg-red-100 text-red-700 rounded-lg shadow">Error: {error}</div>;
+  }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      {/* Sidebar */}
-      <Sidebar />
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <SummaryCard title="Pendapatan Bulan Ini" value={`Rp ${totalPendapatanBulanIni.toLocaleString()}`} icon={<ArrowUpRight size={24} />} color="border-green-500" />
+        <SummaryCard title="Pengeluaran Bulan Ini" value={`Rp ${totalPengeluaranBulanIni.toLocaleString()}`} icon={<ArrowDownRight size={24} />} color="border-red-500" />
+        <SummaryCard title="Total Saldo" value={`Rp ${saldoAkhir.toLocaleString()}`} icon={<DollarSign size={24} />} color="border-blue-500" />
+      </div>
 
-      {/* Konten utama */}
-      <main className="flex-1 p-8 md:ml-64 space-y-6 transition-all duration-300 ease-in-out overflow-y-auto">
-        {/* Error message */}
-        {error && (
-          <div className="p-4 bg-red-100 text-red-700 rounded-lg shadow">
-            {error}
+      {/* Chart and Recent Transactions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Chart */}
+        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
+          <h3 className="text-lg font-semibold mb-4">Ringkasan 6 Bulan Terakhir</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip formatter={(value) => `Rp ${value.toLocaleString()}`} />
+              <Legend />
+              <Bar dataKey="Pendapatan" fill="#16a34a" />
+              <Bar dataKey="Pengeluaran" fill="#dc2626" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Recent Transactions */}
+        <div className="bg-white p-6 rounded-xl shadow-md">
+          <h3 className="text-lg font-semibold mb-4">Transaksi Terakhir</h3>
+          <div className="space-y-4">
+            {recentTransactions.length > 0 ? (
+              recentTransactions.map(item => (
+                <div key={item.id} className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">{item.kategori}</p>
+                    <p className="text-sm text-gray-500">{new Date(item.id).toLocaleDateString()}</p>
+                  </div>
+                  <p className={`font-bold ${item.type === 'pendapatan' ? 'text-green-600' : 'text-red-600'}`}>
+                    {item.type === 'pendapatan' ? '+' : '-'} Rp {item.jumlah.toLocaleString()}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-500">Tidak ada transaksi.</p>
+            )}
           </div>
-        )}
-
-        {/* Header Saldo */}
-        <div className="header-saldo">
-          <h2>Saldo Saat Ini</h2>
-          <p>{loading ? "Loading..." : `Rp ${saldo?.toLocaleString()}`}</p>
         </div>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="summary-card">
-            <CardContent className="summary-content">
-              <div className="summary-icon bg-green-100">
-                <FaArrowUp className="text-green-600" size={24} />
-              </div>
-              <div>
-                <p>Pendapatan Bulan Ini</p>
-                <h3 className="text-green-700">
-                  {loading
-                    ? "Loading..."
-                    : `Rp ${summary.pendapatan?.toLocaleString()}`}
-                </h3>
-                <span className="text-green-500">
-                  {summary.pendapatanPersen || ""}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="summary-card">
-            <CardContent className="summary-content">
-              <div className="summary-icon bg-red-100">
-                <FaArrowDown className="text-red-600" size={24} />
-              </div>
-              <div>
-                <p>Pengeluaran Bulan Ini</p>
-                <h3 className="text-red-700">
-                  {loading
-                    ? "Loading..."
-                    : `Rp ${summary.pengeluaran?.toLocaleString()}`}
-                </h3>
-                <span className="text-red-500">
-                  {summary.pengeluaranPersen || ""}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="summary-card">
-            <CardContent className="summary-content">
-              <div className="summary-icon bg-blue-100">
-                <FaChartLine className="text-blue-600" size={24} />
-              </div>
-              <div>
-                <p>Keuntungan Bulan Ini</p>
-                <h3 className="text-blue-700">
-                  {loading
-                    ? "Loading..."
-                    : `Rp ${summary.keuntungan?.toLocaleString()}`}
-                </h3>
-                <span className="text-blue-500">
-                  {summary.keuntunganPersen || ""}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Chart + Transaksi Terakhir */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Chart Card */}
-          <Card className="chart-card">
-            <CardContent>
-              <h3 className="chart-title">Pendapatan vs Pengeluaran</h3>
-              <div className="chart-placeholder">
-                📊 Chart data dari API nanti dimasukin sini
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Transaksi Terakhir */}
-          <Card className="transaksi-card">
-            <CardContent>
-              <div className="transaksi-header">
-                <h3>Transaksi Terakhir</h3>
-                <button className="lihat-semua-btn">Lihat Semua</button>
-              </div>
-              <ul className="transaksi-list">
-                {loading ? (
-                  <p>Loading...</p>
-                ) : transaksi.length > 0 ? (
-                  transaksi.map((item, idx) => (
-                    <li key={idx} className="transaksi-item">
-                      <div>
-                        <p>{item.nama}</p>
-                        <span>{item.waktu}</span>
-                      </div>
-                      <span
-                        className={
-                          item.nominal > 0
-                            ? "transaksi-nominal-plus"
-                            : "transaksi-nominal-minus"
-                        }
-                      >
-                        {item.nominal > 0
-                          ? `+ Rp ${item.nominal.toLocaleString()}`
-                          : `- Rp ${Math.abs(item.nominal).toLocaleString()}`}
-                      </span>
-                    </li>
-                  ))
-                ) : (
-                  <p>Tidak ada transaksi</p>
-                )}
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
-      </main>
+      </div>
     </div>
   );
 }

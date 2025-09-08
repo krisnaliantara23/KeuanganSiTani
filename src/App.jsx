@@ -12,7 +12,9 @@ import BerandaPage from "./pages/BerandaPage";
 import PendapatanPage from "./pages/PendapatanPage";
 import PengeluaranPage from "./pages/PengeluaranPage";
 import LaporanPage from "./pages/LaporanPage";
+import PengaturanPage from "./pages/PengaturanPage"; // ⬅️ baru
 import Layout from "./component/Layout";
+import ProtectedRoute from "./component/ProtectedRoute"; // ⬅️ baru
 
 function App() {
   return (
@@ -26,47 +28,61 @@ function App() {
           <Route path="/syarat-dan-ketentuan" element={<SyaratDanKetentuan />} />
           <Route path="/lupa-kata-sandi" element={<LupaKataSandi />} />
 
-          {/* Halaman dengan sidebar & header */}
+          {/* Halaman Panduan bisa diakses tanpa login */}
+          <Route path="/panduan" element={<PanduanPage />} />
+
+          {/* Halaman dengan sidebar & header (dilindungi login) */}
           <Route
             path="/beranda"
             element={
-              <Layout>
-                <BerandaPage />
-              </Layout>
+              <ProtectedRoute>
+                <Layout>
+                  <BerandaPage />
+                </Layout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/pendapatan"
             element={
-              <Layout>
-                <PendapatanPage />
-              </Layout>
+              <ProtectedRoute>
+                <Layout>
+                  <PendapatanPage />
+                </Layout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/pengeluaran"
             element={
-              <Layout>
-                <PengeluaranPage />
-              </Layout>
+              <ProtectedRoute>
+                <Layout>
+                  <PengeluaranPage />
+                </Layout>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/laporan"
             element={
-              <Layout>
-                <LaporanPage />
-              </Layout>
+              <ProtectedRoute>
+                <Layout>
+                  <LaporanPage />
+                </Layout>
+              </ProtectedRoute>
             }
           />
           <Route
-            path="/panduan"
+            path="/pengaturan"
             element={
-              <Layout>
-                <PanduanPage />
-              </Layout>
+              <ProtectedRoute>
+                <Layout>
+                  <PengaturanPage />
+                </Layout>
+              </ProtectedRoute>
             }
           />
+
           <Route path="/faq" element={<FAQ />} />
 
           {/* fallback */}

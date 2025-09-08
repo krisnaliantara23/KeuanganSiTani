@@ -1,4 +1,3 @@
-// src/component/Sidebar.jsx
 import { useState } from "react";
 import {
   Home,
@@ -10,8 +9,10 @@ import {
   User,
   Menu,
   X,
+  ChevronDown
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
+import IconLogo from "../assets/IconLogo.png";
 
 export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -26,12 +27,14 @@ export default function Sidebar() {
     { path: "/laporan", label: "Laporan", icon: FileText },
     { path: "/panduan", label: "Panduan", icon: Book },
     { path: "/pengaturan", label: "Pengaturan", icon: Settings },
-    { path: "/admin", label: "Panel Admin", icon: User },
   ];
+
+  const baseLinkClass = "flex items-center w-full p-3 rounded-lg text-gray-700 hover:bg-green-100 hover:text-green-800 transition-colors duration-200";
+  const activeLinkClass = "bg-green-600 text-white font-bold hover:bg-green-700";
 
   return (
     <>
-      {/* Hamburger Button */}
+      {/* Hamburger Button for Mobile */}
       <button
         className="md:hidden fixed top-4 left-4 z-50 bg-green-600 text-white p-2 rounded-lg shadow-lg"
         onClick={toggleSidebar}
@@ -41,46 +44,42 @@ export default function Sidebar() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 h-full w-64 bg-white shadow-md flex flex-col justify-between p-4 transform transition-transform duration-300 ease-in-out z-40
+        className={`fixed top-0 left-0 h-full w-64 bg-white shadow-lg flex flex-col transform transition-transform duration-300 ease-in-out z-40
         ${isOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
       >
-        {/* Logo */}
-        <div>
-          <div className="flex items-center space-x-2 mb-6">
-            <div className="bg-green-100 p-2 rounded-lg">
-              <Home className="text-green-600" size={20} />
-            </div>
-            <div>
-              
-              <h1 className="text-lg font-bold text-gray-800">SiTani</h1>
-              <p className="text-xs text-gray-500">Kelola Keuangan Pertanian</p>
-            </div>
-          </div>
-
-          {/* Menu */}
-          <nav className="space-y-2">
-            {menuItems.map(({ path, label, icon: Icon }) => (
-              <Link
-                key={path}
-                to={path}
-                className={`sidebar-link ${
-                  location.pathname === path ? "active" : ""
-                }`}
-                onClick={() => setIsOpen(false)} // close kalau mobile
-              >
-                <Icon size={18} /> {label}
-              </Link>
-            ))}
-          </nav>
+        {/* Logo Section */}
+        <div className="flex items-center justify-center p-4 border-b border-gray-200">
+          <img src={IconLogo} alt="SiTani Logo" className="h-10 w-10 mr-3"/>
+          <h1 className="text-2xl font-bold text-green-800">SiTani</h1>
         </div>
 
-        {/* Profil User */}
-        <div className="bg-green-100 rounded-lg p-3 flex items-center space-x-2">
-          <User className="text-green-600" size={20} />
-          <div>
-            <p className="text-sm font-medium">Budi Santoso</p>
-            <p className="text-xs text-gray-500">budisantoso@email.com</p>
-          </div>
+        {/* Menu Items Section */}
+        <nav className="flex-1 px-4 py-6 space-y-2">
+          {menuItems.map(({ path, label, icon: Icon }) => (
+            <Link
+              key={path}
+              to={path}
+              className={`${baseLinkClass} ${location.pathname === path ? activeLinkClass : ""}`}
+              onClick={() => setIsOpen(false)} // Close sidebar on mobile after click
+            >
+              <Icon className="mr-4" size={20} />
+              <span>{label}</span>
+            </Link>
+          ))}
+        </nav>
+
+        {/* User Profile Section */}
+        <div className="p-4 border-t border-gray-200">
+            <div className="flex items-center">
+                <div className="w-10 h-10 rounded-full bg-green-200 flex items-center justify-center mr-3">
+                    <User className="text-green-700" />
+                </div>
+                <div className="flex-1">
+                    <p className="text-sm font-semibold text-gray-800">Nama Petani</p>
+                    <p className="text-xs text-gray-500">petani@email.com</p>
+                </div>
+                <ChevronDown size={20} className="text-gray-500"/>
+            </div>
         </div>
       </aside>
     </>
