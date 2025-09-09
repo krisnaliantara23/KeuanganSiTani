@@ -127,7 +127,8 @@ export default function PendapatanPage() {
                 <option value="">Pilih kategori</option>
                 <option value="Kentang">Kentang</option>
                 <option value="Selada">Selada</option>
-                <option value="Bawang">Bawang</option>
+                <option v
+                lue="Bawang">Bawang</option>
                 <option value="Sawi">Sawi</option>
                 <option value="Bawang_Prei">Bawang Prei</option>
                 <option value="Serai">Serai</option>
