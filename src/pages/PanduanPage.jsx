@@ -2,15 +2,10 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import IconLogo from "../assets/IconLogo.png";
-import Sidebar from "../component/Sidebar";
 import Footer from "../component/Footer";
 
 export default function PanduanPage() {
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // cek status login
-  const isLoggedIn = !!localStorage.getItem("token");
 
   const guideTabs = [
     { id: "dashboard", label: "Dashboard" },
@@ -183,75 +178,48 @@ export default function PanduanPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Header */}
-      <header className="w-full flex justify-between items-center p-4 bg-white shadow-md fixed top-0 left-0 z-50">
+    <div className="flex flex-col min-h-screen bg-gray-50">
+      {/* Header Sederhana */}
+      <header className="w-full flex justify-between items-center p-4 bg-white shadow-md sticky top-0 z-50">
         <div className="flex items-center space-x-2">
-          {/* tombol hamburger */}
-          {isLoggedIn && (
-            <button
-              className="md:hidden mr-2 text-gray-700"
-              onClick={() => setSidebarOpen(true)}
-            >
-              ☰
-            </button>
-          )}
           <img src={IconLogo} alt="Logo" className="h-8 w-8" />
-          <span className="text-xl font-bold text-[#004030]">SiTani</span>
+          <span className="text-xl font-bold text-[#004030]">SiTani - Panduan</span>
         </div>
         <div className="space-x-4">
           <Link to="/" className="text-[#004030] font-medium hover:underline">
-            Beranda
+            Kembali ke Beranda
           </Link>
-          {!isLoggedIn && (
-            <Link
-              to="/login"
-              className="bg-[#4A9782] text-white px-4 py-2 rounded-lg hover:bg-[#3b7a67]"
-            >
-              Masuk
-            </Link>
-          )}
+          <Link
+            to="/login"
+            className="bg-[#004030] text-white px-4 py-2 rounded-lg hover:bg-[#3b7a67]"
+          >
+            Masuk
+          </Link>
         </div>
       </header>
 
-      {/* Body */}
-      <div className="flex flex-1 pt-16 bg-gray-50">
-        {/* Sidebar hanya kalau login */}
-        {isLoggedIn && (
-          <>
-            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-            {sidebarOpen && (
-              <div
-                className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
-                onClick={() => setSidebarOpen(false)}
-              />
-            )}
-          </>
-        )}
+      {/* Konten utama */}
+      <main className="flex-1 p-6 max-w-4xl mx-auto w-full">
+        {/* Tab navigasi */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          {guideTabs.map((tab) => (
+            <button
+              key={tab.id}
+              className={`px-4 py-2 rounded-full ${
+                activeTab === tab.id
+                  ? "bg-green-100 text-green-700 font-bold"
+                  : "bg-gray-200 text-gray-700"
+              }`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-        {/* Konten utama */}
-        <main className="flex-1 p-6 z-10 max-w-4xl mx-auto">
-          {/* Tab navigasi */}
-          <div className="flex flex-wrap gap-2 mb-6">
-            {guideTabs.map((tab) => (
-              <button
-                key={tab.id}
-                className={`px-4 py-2 rounded-full ${
-                  activeTab === tab.id
-                    ? "bg-green-100 text-green-700 font-bold"
-                    : "bg-gray-200 text-gray-700"
-                }`}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Konten berdasarkan tab */}
-          {renderContent()}
-        </main>
-      </div>
+        {/* Konten berdasarkan tab */}
+        {renderContent()}
+      </main>
 
       {/* Footer */}
       <Footer />

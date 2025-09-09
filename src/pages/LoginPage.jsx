@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import { FaUser, FaLock } from "react-icons/fa";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import { login } from "../lib/auth";
 import IconLogo from "../assets/IconLogo.png";
 import GambarSawah from "../assets/GambarSawah.jpg";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [error, setError] = useState("");
 
   const [form, setForm] = useState({
     email: "",
@@ -23,24 +24,26 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(""); // Reset error on new submission
 
     if (!form.email || !form.password) {
-      alert("Email dan password wajib diisi!");
+      setError("Email dan password wajib diisi!");
       return;
     }
 
     try {
-      const res = await axios.post("http://localhost:3000/api/auth/login", {
-        email: form.email,
-        password: form.password,
-      });
+      const res = await login(form);
 
-      localStorage.setItem("token", res.data.token);
-      alert("Login berhasil!");
-      navigate("/dashboard");
+      if (res.data && res.data.token) {
+        localStorage.setItem("token", res.data.token);
+        navigate("/beranda"); // Redirect to beranda
+      } else {
+        setError("Login gagal: Token tidak diterima.");
+      }
     } catch (err) {
       console.error(err);
-      alert("Login gagal, coba lagi!");
+      const message = err.response?.data?.message || "Login gagal, silakan coba lagi.";
+      setError(message);
     }
   };
 
@@ -73,6 +76,12 @@ export default function LoginPage() {
         <p className="text-lg font-semibold text-[#004030] mb-6 text-center">
           Masuk untuk mengelola keuangan pertanian Anda.
         </p>
+
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-full relative mb-4 text-center">
+            {error}
+          </div>
+        )}
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           {/* Email */}

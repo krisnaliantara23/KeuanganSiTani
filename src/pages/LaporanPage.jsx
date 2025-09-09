@@ -1,10 +1,10 @@
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import SummaryCard from "../component/SummaryCard";
-import { useData } from "../context/DataContext";
+import { getPendapatan, getPengeluaran } from "../services/financeService";
 import {
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
   CartesianGrid,
   XAxis,
   YAxis,
@@ -18,9 +18,41 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 
 export default function LaporanPage() {
-  const { pendapatan, pengeluaran } = useData();
+  const [pendapatan, setPendapatan] = useState([]);
+  const [pengeluaran, setPengeluaran] = useState([]);
   const [bulan, setBulan] = useState(new Date().getMonth());
   const [tahun, setTahun] = useState(new Date().getFullYear());
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [pendapatanData, pengeluaranData] = await Promise.all([
+          getPendapatan(),
+          getPengeluaran(),
+        ]);
+        // Adapt the data structure to match what the component expects
+        setPendapatan(
+          pendapatanData.map((item) => ({
+            id: item.tanggal, // Used for date filtering
+            jumlah: item.debit,
+            kategori: item.kategori_id,
+            deskripsi: item.deskripsi,
+          }))
+        );
+        setPengeluaran(
+          pengeluaranData.map((item) => ({
+            id: item.tanggal, // Used for date filtering
+            jumlah: item.kredit,
+            kategori: item.kategori_id,
+            deskripsi: item.deskripsi,
+          }))
+        );
+      } catch (error) {
+        console.error("Gagal memuat data laporan:", error);
+      }
+    }
+    loadData();
+  }, []);
 
   const filteredData = useMemo(() => {
     const filteredPendapatan = pendapatan.filter(
@@ -134,11 +166,9 @@ export default function LaporanPage() {
               </div>
               <div className="flex gap-4">
                   <select value={bulan} onChange={e => setBulan(parseInt(e.target.value))} className="border p-2 rounded">
-                      {bulanList.map((b, i) => <option key={i} value={i}>{b}</option>)}
-                  </select>
+                      {bulanList.map((b, i) => <option key={i} value={i}>{b}</option>)}                  </select>
                   <select value={tahun} onChange={e => setTahun(parseInt(e.target.value))} className="border p-2 rounded">
-                      {tahunList.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                      {tahunList.map(t => <option key={t} value={t}>{t}</option>)}                  </select>
                   <button onClick={exportPDF} className="bg-blue-600 text-white px-4 py-2 rounded">
                       Export PDF
                   </button>
@@ -162,17 +192,13 @@ export default function LaporanPage() {
           <div className="bg-white p-5 rounded-xl shadow-md">
               <h3 className="text-lg font-semibold mb-4">Tren Keuntungan (per Bulan)</h3>
               <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={trendData}>
+                  <LineChart data={trendData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />
                       <YAxis />
                       <Tooltip formatter={(v) => `Rp ${v.toLocaleString()}`} />
-                      <Bar dataKey="keuntungan">
-                          {trendData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.keuntungan >= 0 ? '#16a34a' : '#dc2626'} />
-                          ))}
-                      </Bar>
-                  </BarChart>
+                      <Line type="monotone" dataKey="keuntungan" stroke="#16a34a" strokeWidth={2} />
+                  </LineChart>
               </ResponsiveContainer>
           </div>
           <div className="bg-white p-5 rounded-xl shadow-md">

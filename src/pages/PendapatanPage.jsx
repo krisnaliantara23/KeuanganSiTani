@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { getPendapatan, addPendapatan } from "../services/financeService";
 import "../styles/pendapatan.css";
 
@@ -11,7 +11,6 @@ export default function PendapatanPage() {
     deskripsi: "",
     tanggal: "",
   });
-  const token = localStorage.getItem("token");
 
   useEffect(() => {
     loadData();
@@ -19,7 +18,7 @@ export default function PendapatanPage() {
 
   async function loadData() {
     try {
-      const data = await getPendapatan(token);
+      const data = await getPendapatan();
       setPendapatan(data);
     } catch (err) {
       console.error("Gagal ambil pendapatan:", err);
@@ -29,7 +28,7 @@ export default function PendapatanPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     try {
-      await addPendapatan(form, token);
+      await addPendapatan(form);
       setForm({ kategori_id: "", jumlah: 0, deskripsi: "", tanggal: "" });
       setShowModal(false);
       loadData();
@@ -37,6 +36,13 @@ export default function PendapatanPage() {
       console.error("Gagal tambah pendapatan:", err);
     }
   }
+
+  const transaksiTerakhir = useMemo(() => {
+    if (pendapatan.length === 0) return null;
+    // Sort by date to find the most recent transaction
+    const sorted = [...pendapatan].sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
+    return sorted[0];
+  }, [pendapatan]);
 
   return (
     <>
@@ -50,6 +56,31 @@ export default function PendapatanPage() {
           + Tambah Pendapatan
         </button>
       </div>
+
+      {/* Transaksi Terakhir */}
+      {transaksiTerakhir && (
+        <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+            <h3 className="text-lg font-semibold mb-4 border-b pb-2">Transaksi Terakhir</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                    <p className="text-sm text-gray-500">Tanggal</p>
+                    <p className="font-medium">{new Date(transaksiTerakhir.tanggal).toLocaleDateString("id-ID")}</p>
+                </div>
+                <div>
+                    <p className="text-sm text-gray-500">Jumlah</p>
+                    <p className="font-medium text-green-600">Rp {transaksiTerakhir.debit?.toLocaleString("id-ID")}</p>
+                </div>
+                <div>
+                    <p className="text-sm text-gray-500">Kategori</p>
+                    <p className="font-medium">{transaksiTerakhir.kategori_id}</p>
+                </div>
+                <div>
+                    <p className="text-sm text-gray-500">Deskripsi</p>
+                    <p className="font-medium">{transaksiTerakhir.deskripsi || "-"}</p>
+                </div>
+            </div>
+        </div>
+      )}
 
       {/* Tabel */}
       <div className="bg-white rounded-xl shadow-md p-6">
@@ -94,9 +125,14 @@ export default function PendapatanPage() {
                 required
               >
                 <option value="">Pilih kategori</option>
-                <option value="Padi">Padi</option>
+                <option value="Kentang">Kentang</option>
+                <option value="Selada">Selada</option>
+                <option value="Bawang">Bawang</option>
+                <option value="Sawi">Sawi</option>
+                <option value="Bawang_Prei">Bawang Prei</option>
+                <option value="Serai">Serai</option>
                 <option value="Jagung">Jagung</option>
-                <option value="Sayur">Sayur</option>
+                <option value="Tomat">Tomat</option>
               </select>
 
               <input

@@ -1,24 +1,49 @@
 
-import React, { useState } from "react";
-import { useData } from "../context/DataContext";
+import React, { useState, useEffect, useMemo } from "react";
+import { getPengeluaran, addPengeluaran } from "../services/financeService";
 import "../styles/pendapatan.css"; // Menggunakan style yang sama dengan pendapatan
 
 export default function PengeluaranPage() {
-  const { pengeluaran, tambahPengeluaran } = useData();
+  const [pengeluaran, setPengeluaran] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({
-    kategori: "",
+    kategori_id: "",
     jumlah: 0,
     deskripsi: "",
     tanggal: "",
   });
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  async function loadData() {
+    try {
+      const data = await getPengeluaran();
+      setPengeluaran(data);
+    } catch (err) {
+      console.error("Gagal ambil pengeluaran:", err);
+    }
+  }
+
+  async function handleSubmit(e) {
     e.preventDefault();
-    tambahPengeluaran({ ...form, id: Date.now() });
-    setForm({ kategori: "", jumlah: 0, deskripsi: "", tanggal: "" });
-    setShowModal(false);
-  };
+    try {
+      await addPengeluaran(form);
+      setForm({ kategori_id: "", jumlah: 0, deskripsi: "", tanggal: "" });
+      setShowModal(false);
+      loadData();
+    } catch (err) {
+      console.error("Gagal tambah pengeluaran:", err);
+    }
+  }
+
+  const transaksiTerakhir = useMemo(() => {
+    if (pengeluaran.length === 0) return null;
+    // Sort by date to find the most recent transaction
+    const sorted = [...pengeluaran].sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
+    return sorted[0];
+  }, [pengeluaran]);
 
   return (
     <>
@@ -32,6 +57,31 @@ export default function PengeluaranPage() {
           + Tambah Pengeluaran
         </button>
       </div>
+
+      {/* Transaksi Terakhir */}
+      {transaksiTerakhir && (
+        <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+            <h3 className="text-lg font-semibold mb-4 border-b pb-2">Transaksi Terakhir</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                    <p className="text-sm text-gray-500">Tanggal</p>
+                    <p className="font-medium">{new Date(transaksiTerakhir.tanggal).toLocaleDateString("id-ID")}</p>
+                </div>
+                <div>
+                    <p className="text-sm text-gray-500">Jumlah</p>
+                    <p className="font-medium text-red-600">Rp {transaksiTerakhir.kredit?.toLocaleString("id-ID")}</p>
+                </div>
+                <div>
+                    <p className="text-sm text-gray-500">Kategori</p>
+                    <p className="font-medium">{transaksiTerakhir.kategori_id}</p>
+                </div>
+                <div>
+                    <p className="text-sm text-gray-500">Deskripsi</p>
+                    <p className="font-medium">{transaksiTerakhir.deskripsi || "-"}</p>
+                </div>
+            </div>
+        </div>
+      )}
 
       {/* Tabel */}
       <div className="bg-white rounded-xl shadow-md p-6">
@@ -47,10 +97,10 @@ export default function PengeluaranPage() {
           </thead>
           <tbody>
             {pengeluaran.map((item) => (
-              <tr key={item.id} className="border-t">
-                <td className="p-2">{item.kategori}</td>
+              <tr key={item.id_laporan} className="border-t">
+                <td className="p-2">{item.kategori_id}</td>
                 <td className="p-2">
-                  Rp {item.jumlah.toLocaleString("id-ID")}
+                  Rp {item.kredit?.toLocaleString("id-ID")}
                 </td>
                 <td className="p-2">{item.deskripsi}</td>
                 <td className="p-2">
@@ -69,9 +119,9 @@ export default function PengeluaranPage() {
             <h3 className="text-xl font-bold mb-4">Tambah Pengeluaran</h3>
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
               <select
-                value={form.kategori}
+                value={form.kategori_id}
                 onChange={(e) =>
-                  setForm({ ...form, kategori: e.target.value })
+                  setForm({ ...form, kategori_id: e.target.value })
                 }
                 className="p-2 border rounded"
                 required

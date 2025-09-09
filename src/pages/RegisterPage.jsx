@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import { FaUser, FaLock } from "react-icons/fa";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import { register } from "../lib/auth";
 import IconLogo from "../assets/IconLogo.png";
 import GambarSawah from "../assets/GambarSawah.jpg";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const [form, setForm] = useState({
     nama: "",
@@ -31,46 +33,51 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+    setSuccess("");
 
     // Validasi
     if (!form.nama || !form.email || !form.telepon || !form.password || !form.konfirmasiPassword) {
-      alert("Semua field wajib diisi!");
+      setError("Semua field wajib diisi!");
       return;
     }
 
     if (form.telepon.length < 10) {
-      alert("Nomor telepon minimal 10 digit!");
+      setError("Nomor telepon minimal 10 digit!");
       return;
     }
 
     const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
     if (!passwordRegex.test(form.password)) {
-      alert("Password minimal 8 karakter dan harus mengandung kombinasi huruf dan angka!");
+      setError("Password minimal 8 karakter, kombinasi huruf dan angka!");
       return;
     }
 
     if (form.password !== form.konfirmasiPassword) {
-      alert("Konfirmasi password tidak cocok!");
+      setError("Konfirmasi password tidak cocok!");
       return;
     }
 
     if (!form.setuju) {
-      alert("Anda harus menyetujui syarat dan ketentuan!");
+      setError("Anda harus menyetujui syarat dan ketentuan!");
       return;
     }
 
     try {
-      await axios.post("http://localhost:3000/api/auth/register", {
-        username: form.nama,
+      await register({
+        nama: form.nama,
         email: form.email,
         telepon: form.telepon,
         password: form.password,
       });
-      alert("Pendaftaran berhasil! Silakan login.");
-      navigate("/login");
+      setSuccess("Pendaftaran berhasil! Anda akan diarahkan ke halaman login.");
+      setTimeout(() => {
+        navigate("/login");
+      }, 2000);
     } catch (err) {
       console.error(err);
-      alert("Pendaftaran gagal, coba lagi!");
+      const message = err.response?.data?.message || "Pendaftaran gagal, silakan coba lagi.";
+      setError(message);
     }
   };
 
@@ -93,6 +100,17 @@ export default function RegisterPage() {
         <p className="text-lg font-semibold text-[#004030] mb-6 text-center">
           Mulai kelola keuangan pertanian Anda secara praktis dan aman.
         </p>
+
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-full relative mb-4 text-center">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-full relative mb-4 text-center">
+            {success}
+          </div>
+        )}
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           {/* Nama */}
