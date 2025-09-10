@@ -65,9 +65,11 @@ export default function RegisterPage() {
 
     try {
       await register({
-        name: form.nama,
+        nama: form.nama,                // sesuai backend
         email: form.email,
+        nomor_telepon: form.telepon,    // sesuai backend
         password: form.password,
+        role: "user",                   // default role user
       });
       setSuccess("Pendaftaran berhasil! Anda akan diarahkan ke halaman login.");
       setTimeout(() => {
