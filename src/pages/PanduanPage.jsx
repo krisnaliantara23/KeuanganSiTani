@@ -22,9 +22,9 @@ export default function PanduanPage() {
           <>
             {/* Section: Dasar-dasar */}
             <section className="bg-white p-6 rounded-xl shadow mb-6">
-              <h2 className="text-xl font-bold mb-3">Memulai dengan Agri Finance</h2>
+              <h2 className="text-xl font-bold mb-3">Memulai dengan SiTani</h2>
               <p className="text-gray-700 mb-2">
-                Pelajari cara menggunakan aplikasi Agri Finance untuk mengelola keuangan pertanian Anda dengan mudah.
+                Pelajari cara menggunakan website SiTani untuk mengelola keuangan pertanian Anda dengan mudah.
               </p>
               <ul className="list-decimal list-inside text-gray-700 space-y-2 mt-2">
                 <li>Daftar dan lengkapi profil Anda.</li>

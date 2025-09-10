@@ -69,7 +69,7 @@ export default function Sidebar() {
         </nav>
 
         {/* User Profile Section */}
-        <div className="p-4 border-t border-gray-200">
+        {/* <div className="p-4 border-t border-gray-200">
             <div className="flex items-center">
                 <div className="w-10 h-10 rounded-full bg-green-200 flex items-center justify-center mr-3">
                     <User className="text-green-700" />
@@ -80,7 +80,7 @@ export default function Sidebar() {
                 </div>
                 <ChevronDown size={20} className="text-gray-500"/>
             </div>
-        </div>
+        </div> */}
       </aside>
     </>
   );
