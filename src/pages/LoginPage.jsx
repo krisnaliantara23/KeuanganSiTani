@@ -22,7 +22,7 @@ export default function LoginPage() {
       const res = await axios.post(
         "https://be-laporankeuangan.up.railway.app/api/auth/login",
         {
-          email: form.email,
+          identifier: form.email,
           password: form.password,
         }
       );
