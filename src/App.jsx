@@ -1,37 +1,41 @@
+// src/App.jsx
 import React from "react";
 import { DataProvider } from "./context/DataContext";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+
+// Pages
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import SyaratDanKetentuan from "./pages/SyaratDanKetentuan";
 import LupaKataSandi from "./pages/LupaKataSandi";
 import LandingPage from "./pages/LandingPage";
 import PanduanPage from "./pages/PanduanPage";
-import FAQ from "./component/FAQ";
 import BerandaPage from "./pages/BerandaPage";
 import PendapatanPage from "./pages/PendapatanPage";
 import PengeluaranPage from "./pages/PengeluaranPage";
 import LaporanPage from "./pages/LaporanPage";
-import PengaturanPage from "./pages/PengaturanPage"; // ⬅️ baru
+import PengaturanPage from "./pages/PengaturanPage";
+import FAQ from "./component/FAQ";
+
+// Components
 import Layout from "./component/Layout";
-import ProtectedRoute from "./component/ProtectedRoute"; // ⬅️ baru
+import ProtectedRoute from "./component/ProtectedRoute";
 
 function App() {
   return (
     <Router>
       <DataProvider>
         <Routes>
-          {/* Halaman tanpa layout */}
+          {/* Halaman public */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/syarat-dan-ketentuan" element={<SyaratDanKetentuan />} />
           <Route path="/lupa-kata-sandi" element={<LupaKataSandi />} />
-
-          {/* Halaman Panduan bisa diakses tanpa login */}
           <Route path="/panduan" element={<PanduanPage />} />
+          <Route path="/faq" element={<FAQ />} />
 
-          {/* Halaman dengan sidebar & header (dilindungi login) */}
+          {/* Halaman dengan sidebar & header (hanya bisa diakses kalau login) */}
           <Route
             path="/beranda"
             element={
@@ -83,9 +87,7 @@ function App() {
             }
           />
 
-          <Route path="/faq" element={<FAQ />} />
-
-          {/* fallback */}
+          {/* fallback route → kalau path ga dikenal, kembalikan ke landing */}
           <Route path="*" element={<LandingPage />} />
         </Routes>
       </DataProvider>

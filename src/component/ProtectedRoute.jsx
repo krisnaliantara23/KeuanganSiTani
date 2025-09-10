@@ -6,7 +6,8 @@ export default function ProtectedRoute({ children }) {
   const isLoggedIn = !!localStorage.getItem("token"); // cek token di localStorage
 
   if (!isLoggedIn) {
-    return <Navigate to="/panduan" replace />;
+    // kalau belum login, lempar ke halaman login
+    return <Navigate to="/login" replace />;
   }
 
   return children;

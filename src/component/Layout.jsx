@@ -1,18 +1,30 @@
-import React from 'react';
-import Sidebar from './Sidebar';
-import Header from './Header';
-import Footer from './Footer';
+// src/component/Layout.jsx
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import Sidebar from "./Sidebar";
+import Header from "./Header";
 
 export default function Layout({ children }) {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login");
+  };
+
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="flex h-screen bg-gray-100">
+      {/* Sidebar */}
       <Sidebar />
-      <div className="md:ml-64 flex flex-col justify-between">
-        <Header />
-        <main className="p-6">
-          {children}
-        </main>
-        <Footer />
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <Header onLogout={handleLogout} />
+
+        {/* Page Content */}
+        <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
     </div>
   );

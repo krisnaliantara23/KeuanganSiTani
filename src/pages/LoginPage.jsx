@@ -29,9 +29,10 @@ export default function LoginPage() {
 
       // simpan token ke localStorage
       localStorage.setItem("token", res.data.token);
+      localStorage.setItem("user", JSON.stringify(res.data.user));
 
       // arahkan ke dashboard
-      navigate("/dashboard");
+      navigate("/beranda");
     } catch (err) {
       console.error(err);
       const msg =

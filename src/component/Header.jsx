@@ -1,18 +1,26 @@
-// Header.jsx
+// src/component/Header.jsx
 import React from "react";
-import { Menu } from "lucide-react";
 
-export default function Header({ toggleSidebar }) {
+export default function Header({ onLogout }) {
+  const user = JSON.parse(localStorage.getItem("user"));
+
   return (
-    <header className="flex items-center justify-between p-4 bg-white shadow-md">
-      {/* <button
-        onClick={toggleSidebar}
-        className="text-gray-700 hover:text-green-700"
-      >
-        <Menu size={28} />
-      </button> */}
+    <header className="bg-white shadow p-4 flex justify-between items-center">
+      <h1 className="text-xl font-bold text-[#004030]">Dashboard SiTani</h1>
 
-      <h1 className="text-lg font-bold text-[#004030]">Keuangan SiTani</h1>
+      <div className="flex items-center space-x-4">
+        {user && (
+          <span className="text-gray-700 font-medium">
+            Halo, {user.nama}
+          </span>
+        )}
+        <button
+          onClick={onLogout}
+          className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
+        >
+          Logout
+        </button>
+      </div>
     </header>
   );
 }
