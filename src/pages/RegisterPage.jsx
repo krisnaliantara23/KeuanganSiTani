@@ -65,9 +65,8 @@ export default function RegisterPage() {
 
     try {
       await register({
-        nama: form.nama,
+        name: form.nama,
         email: form.email,
-        nomor_telepon: form.telepon,
         password: form.password,
       });
       setSuccess("Pendaftaran berhasil! Anda akan diarahkan ke halaman login.");
