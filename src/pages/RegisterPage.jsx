@@ -3,7 +3,7 @@ import { FaUser, FaLock } from "react-icons/fa";
 import { Link, useNavigate } from "react-router-dom";
 import { register } from "../lib/auth";
 import IconLogo from "../assets/IconLogo.png";
-import GambarSawah from "../assets/GambarSawah.jpg";
+import PertanianKentang from "../assets/PertanianKentang3.jpg";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -84,7 +84,7 @@ export default function RegisterPage() {
     <div className="min-h-screen flex">
       {/* Bagian kiri */}
       <div className="hidden md:flex w-1/2">
-        <img src={GambarSawah} alt="Sawah" className="w-full h-full object-cover" />
+        <img src={PertanianKentang} alt="Pertanian Kentang" className="w-full h-full object-cover" />
       </div>
 
       {/* Bagian kanan */}
