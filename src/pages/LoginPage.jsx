@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import IconLogo from "../assets/IconLogo.png";
 import PertanianKentang from "../assets/PertanianKentang3.jpg";
+import api from "../lib/api";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -29,7 +30,7 @@ export default function LoginPage() {
     }
 
     try {
-      const res = await axios.post("https://be-laporankeuangan.up.railway.app/auth/login", {
+      const res = await axios.post("https://be-laporankeuangan.up.railway.app/api/auth/login", {
         email: form.email,
         password: form.password,
       });
