@@ -124,12 +124,12 @@ export default function BerandaPage() {
         <h2 className="text-xl font-semibold">
           Selamat datang, <span className="text-blue-600">{username}</span> 👋
         </h2>
-        <button
+        {/* <button
           onClick={handleLogout}
           className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg shadow"
         >
           <LogOut size={18} /> Logout
-        </button>
+        </button> */}
       </div>
 
       {/* Summary Cards */}
