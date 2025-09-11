@@ -21,13 +21,13 @@ export async function getPendapatan(token) {
 export async function addPendapatan(token, data) {
   const payload = {
     jenis: "pemasukan",
-    akun_id: data.akun_id, // Menggunakan akun_id dari form
+    akun_id: data.akun_id,
     debit: data.jumlah,
     kredit: 0,
     items: [
       {
         produk_id: data.produk_id,
-        jumlah: 1, // Asumsi jumlah item selalu 1
+        jumlah: 1,
         subtotal: data.jumlah
       }
     ],
