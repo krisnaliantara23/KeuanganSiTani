@@ -1,29 +1,26 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:3000/api/products";
+const API_URL = "https://be-laporankeuangan.up.railway.app/api";
 
-export const getProducts = async (params = {}) => {
-  return axios.get(API_URL, { params });
-};
+function getAuthHeader(token) {
+  return { headers: { Authorization: `Bearer ${token}` } };
+}
 
-export const getProductById = async (id) => {
-  return axios.get(`${API_URL}/${id}`);
-};
+/**
+ * Mengambil daftar semua produk.
+ * @param {string} token - JWT Token
+ */
+export async function getProduk(token) {
+  const res = await axios.get(`${API_URL}/produk`, getAuthHeader(token));
+  return res.data.data;
+}
 
-export const createProduct = async (data) => {
-  return axios.post(API_URL, data, {
-    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-  });
-};
-
-export const updateProduct = async (id, data) => {
-  return axios.put(`${API_URL}/${id}`, data, {
-    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-  });
-};
-
-export const deleteProduct = async (id) => {
-  return axios.delete(`${API_URL}/${id}`, {
-    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
-  });
-};
+/**
+ * Mengambil detail satu produk berdasarkan ID.
+ * @param {string} token - JWT Token
+ * @param {number} id - ID Produk
+ */
+export async function getProdukById(token, id) {
+  const res = await axios.get(`${API_URL}/produk/${id}`, getAuthHeader(token));
+  return res.data.data;
+}

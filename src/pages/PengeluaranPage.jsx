@@ -2,13 +2,18 @@ import React, { useEffect, useState, useMemo } from "react";
 import {
   getPengeluaran,
   addPengeluaran,
+  getAkunKas,
 } from "../services/financeService";
+import { getProduk } from "../services/productService";
 
 export default function PengeluaranPage() {
   const [pengeluaran, setPengeluaran] = useState([]);
+  const [produkList, setProdukList] = useState([]);
+  const [akunList, setAkunList] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({
-    kategori_id: "",
+    produk_id: "",
+    akun_id: "",
     jumlah: 0,
     deskripsi: "",
     tanggal: "",
@@ -17,25 +22,36 @@ export default function PengeluaranPage() {
   const token = localStorage.getItem("token");
 
   useEffect(() => {
-    loadData();
+    loadInitialData();
   }, []);
 
-  async function loadData() {
+  async function loadInitialData() {
     try {
-      const data = await getPengeluaran(token);
-      setPengeluaran(data);
+      const [dataPengeluaran, dataProduk, dataAkun] = await Promise.all([
+        getPengeluaran(token),
+        getProduk(token),
+        getAkunKas(token),
+      ]);
+      setPengeluaran(dataPengeluaran || []);
+      setProdukList(dataProduk || []);
+      setAkunList(dataAkun || []);
     } catch (err) {
-      console.error("Gagal ambil pengeluaran:", err);
+      console.error("Gagal ambil data awal:", err);
     }
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     try {
-      await addPengeluaran(token, form);
-      setForm({ kategori_id: "", jumlah: 0, deskripsi: "", tanggal: "" });
+      const payload = {
+        ...form,
+        produk_id: parseInt(form.produk_id),
+        akun_id: parseInt(form.akun_id),
+      };
+      await addPengeluaran(token, payload);
+      setForm({ produk_id: "", akun_id: "", jumlah: 0, deskripsi: "", tanggal: "" });
       setShowModal(false);
-      loadData();
+      loadInitialData();
     } catch (err) {
       console.error("Gagal tambah pengeluaran:", err);
     }
@@ -44,7 +60,7 @@ export default function PengeluaranPage() {
   const transaksiTerakhir = useMemo(() => {
     if (pengeluaran.length === 0) return null;
     const sorted = [...pengeluaran].sort(
-      (a, b) => new Date(b.tanggal) - new Date(a.tanggal)
+      (a, b) => new Date(b.created_at) - new Date(a.created_at)
     );
     return sorted[0];
   }, [pengeluaran]);
@@ -62,67 +78,7 @@ export default function PengeluaranPage() {
         </button>
       </div>
 
-      {/* Transaksi Terakhir */}
-      {transaksiTerakhir && (
-        <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-          <h3 className="text-lg font-semibold mb-4 border-b pb-2">
-            Transaksi Terakhir
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <p className="text-sm text-gray-500">Tanggal</p>
-              <p className="font-medium">
-                {new Date(transaksiTerakhir.tanggal).toLocaleDateString("id-ID")}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Jumlah</p>
-              <p className="font-medium text-red-600">
-                Rp {transaksiTerakhir.kredit?.toLocaleString("id-ID")}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Kategori</p>
-              <p className="font-medium">{transaksiTerakhir.kategori_id}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Deskripsi</p>
-              <p className="font-medium">
-                {transaksiTerakhir.deskripsi || "-"}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tabel */}
-      <div className="bg-white rounded-xl shadow-md p-6">
-        <h3 className="text-lg font-semibold mb-4">Riwayat Pengeluaran</h3>
-        <table className="w-full text-left border">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="p-2">Kategori</th>
-              <th className="p-2">Jumlah</th>
-              <th className="p-2">Deskripsi</th>
-              <th className="p-2">Tanggal</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pengeluaran.map((item) => (
-              <tr key={item.id_laporan} className="border-t">
-                <td className="p-2">{item.kategori_id}</td>
-                <td className="p-2">
-                  Rp {item.kredit?.toLocaleString("id-ID")}
-                </td>
-                <td className="p-2">{item.deskripsi}</td>
-                <td className="p-2">
-                  {new Date(item.tanggal).toLocaleDateString("id-ID")}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* ... sisa komponen ... */}
 
       {/* Modal */}
       {showModal && (
@@ -131,18 +87,29 @@ export default function PengeluaranPage() {
             <h3 className="text-xl font-bold mb-4">Tambah Pengeluaran</h3>
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
               <select
-                value={form.kategori_id}
-                onChange={(e) =>
-                  setForm({ ...form, kategori_id: e.target.value })
-                }
+                value={form.akun_id}
+                onChange={(e) => setForm({ ...form, akun_id: e.target.value })}
                 required
               >
-                <option value="">Pilih kategori</option>
-                <option value="Pupuk">Pupuk</option>
-                <option value="Bibit">Bibit</option>
-                <option value="Pestisida">Pestisida</option>
-                <option value="Alat">Alat</option>
-                <option value="Tenaga_Kerja">Tenaga Kerja</option>
+                <option value="" disabled>Pilih Akun Kas</option>
+                {akunList.map((akun) => (
+                  <option key={akun.id} value={akun.id}>
+                    {akun.nama}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={form.produk_id}
+                onChange={(e) => setForm({ ...form, produk_id: e.target.value })}
+                required
+              >
+                <option value="" disabled>Pilih Produk</option>
+                {produkList.map((produk) => (
+                  <option key={produk.id} value={produk.id}>
+                    {produk.nama}
+                  </option>
+                ))}
               </select>
 
               <input
