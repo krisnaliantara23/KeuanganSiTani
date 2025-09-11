@@ -1,12 +1,12 @@
-
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import IconLogo from "../assets/IconLogo.png";
 import Footer from "../component/Footer";
+import Sidebar from "../component/Sidebar";
 
 export default function PanduanPage() {
   const [activeTab, setActiveTab] = useState("dashboard");
-
+  const isLoggedIn = !!localStorage.getItem("token");
   const guideTabs = [
     { id: "dashboard", label: "Dashboard" },
     { id: "pendapatan", label: "Pendapatan" },

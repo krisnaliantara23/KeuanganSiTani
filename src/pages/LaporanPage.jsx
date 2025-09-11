@@ -1,245 +1,201 @@
-
-import React, { useState, useMemo, useEffect } from "react";
-import SummaryCard from "../component/SummaryCard";
+import React, { useEffect, useState } from "react";
 import { getPendapatan, getPengeluaran } from "../services/financeService";
-import {
-  LineChart,
-  Line,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 
 export default function LaporanPage() {
   const [pendapatan, setPendapatan] = useState([]);
   const [pengeluaran, setPengeluaran] = useState([]);
-  const [bulan, setBulan] = useState(new Date().getMonth());
-  const [tahun, setTahun] = useState(new Date().getFullYear());
+  const [totalPendapatan, setTotalPendapatan] = useState(0);
+  const [totalPengeluaran, setTotalPengeluaran] = useState(0);
+
+  const token = localStorage.getItem("token");
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        const [pendapatanData, pengeluaranData] = await Promise.all([
-          getPendapatan(),
-          getPengeluaran(),
-        ]);
-        // Adapt the data structure to match what the component expects
-        setPendapatan(
-          pendapatanData.map((item) => ({
-            id: item.tanggal, // Used for date filtering
-            jumlah: item.debit,
-            kategori: item.kategori_id,
-            deskripsi: item.deskripsi,
-          }))
-        );
-        setPengeluaran(
-          pengeluaranData.map((item) => ({
-            id: item.tanggal, // Used for date filtering
-            jumlah: item.kredit,
-            kategori: item.kategori_id,
-            deskripsi: item.deskripsi,
-          }))
-        );
-      } catch (error) {
-        console.error("Gagal memuat data laporan:", error);
-      }
-    }
     loadData();
   }, []);
 
-  const filteredData = useMemo(() => {
-    const filteredPendapatan = pendapatan.filter(
-      (p) =>
-        new Date(p.id).getMonth() === bulan &&
-        new Date(p.id).getFullYear() === tahun
-    );
-    const filteredPengeluaran = pengeluaran.filter(
-      (e) =>
-        new Date(e.id).getMonth() === bulan &&
-        new Date(e.id).getFullYear() === tahun
-    );
-    return { filteredPendapatan, filteredPengeluaran };
-  }, [pendapatan, pengeluaran, bulan, tahun]);
+  async function loadData() {
+    try {
+      const dataPendapatan = await getPendapatan(token);
+      const dataPengeluaran = await getPengeluaran(token);
 
-  const totalPendapatan = filteredData.filteredPendapatan.reduce(
-    (a, b) => a + b.jumlah,
-    0
-  );
-  const totalPengeluaran = filteredData.filteredPengeluaran.reduce(
-    (a, b) => a + b.jumlah,
-    0
-  );
-  const keuntungan = totalPendapatan - totalPengeluaran;
+      const pendapatanList = dataPendapatan?.data || dataPendapatan || [];
+      const pengeluaranList = dataPengeluaran?.data || dataPengeluaran || [];
 
-  const bulanList = [
-    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-    "Juli", "Agustus", "September", "Oktober", "November", "Desember",
-  ];
-  const tahunList = [
-    ...new Set(
-      [...pendapatan, ...pengeluaran].map((d) => new Date(d.id).getFullYear())
-    ),
-  ];
+      setPendapatan(pendapatanList);
+      setPengeluaran(pengeluaranList);
 
-  const trendData = useMemo(() => {
-    return bulanList.map((namaBulan, idx) => {
-      const p = pendapatan
-        .filter((item) => new Date(item.id).getMonth() === idx && new Date(item.id).getFullYear() === tahun)
-        .reduce((sum, item) => sum + item.jumlah, 0);
-      const k = pengeluaran
-        .filter((item) => new Date(item.id).getMonth() === idx && new Date(item.id).getFullYear() === tahun)
-        .reduce((sum, item) => sum + item.jumlah, 0);
-      return { name: namaBulan.substring(0, 3), keuntungan: p - k };
-    });
-  }, [pendapatan, pengeluaran, tahun]);
+      setTotalPendapatan(
+        pendapatanList.reduce((sum, item) => sum + (item.debit || 0), 0)
+      );
+      setTotalPengeluaran(
+        pengeluaranList.reduce((sum, item) => sum + (item.kredit || 0), 0)
+      );
+    } catch (err) {
+      console.error("Gagal ambil laporan:", err);
+    }
+  }
 
-  const komposisiPengeluaran = useMemo(() => {
-    const grouped = filteredData.filteredPengeluaran.reduce((acc, curr) => {
-      acc[curr.kategori] = (acc[curr.kategori] || 0) + curr.jumlah;
-      return acc;
-    }, {});
-    return Object.entries(grouped).map(([name, value]) => ({ name, value }));
-  }, [filteredData.filteredPengeluaran]);
-
-  const analisisKomoditas = useMemo(() => {
-    const komoditas = {};
-    filteredData.filteredPendapatan.forEach(p => {
-        komoditas[p.kategori] = { ...komoditas[p.kategori], pendapatan: (komoditas[p.kategori]?.pendapatan || 0) + p.jumlah };
-    });
-    filteredData.filteredPengeluaran.forEach(e => {
-        komoditas[e.kategori] = { ...komoditas[e.kategori], pengeluaran: (komoditas[e.kategori]?.pengeluaran || 0) + e.jumlah };
-    });
-
-    return Object.entries(komoditas).map(([nama, data]) => ({
-        nama,
-        pendapatan: data.pendapatan || 0,
-        pengeluaran: data.pengeluaran || 0,
-        laba: (data.pendapatan || 0) - (data.pengeluaran || 0)
-    }));
-  }, [filteredData]);
-
-
-  const exportPDF = () => {
+  function exportPDF() {
     const doc = new jsPDF();
-    doc.text(`Laporan Keuangan - ${bulanList[bulan]} ${tahun}`, 14, 16);
-    
-    doc.autoTable({
-        startY: 22,
-        head: [['Total Pendapatan', 'Total Pengeluaran', 'Keuntungan']],
-        body: [[`Rp ${totalPendapatan.toLocaleString()}`, `Rp ${totalPengeluaran.toLocaleString()}`, `Rp ${keuntungan.toLocaleString()}`]],
-        theme: 'grid'
+    doc.text("Laporan Keuangan Pertanian", 14, 16);
+
+    // Tabel Pendapatan
+    autoTable(doc, {
+      head: [["Kategori", "Jumlah", "Deskripsi", "Tanggal"]],
+      body: pendapatan.map((p) => [
+        p.kategori_id,
+        `Rp ${p.debit?.toLocaleString("id-ID")}`,
+        p.deskripsi || "-",
+        new Date(p.tanggal).toLocaleDateString("id-ID"),
+      ]),
+      startY: 22,
     });
 
-    doc.text("Daftar Transaksi", 14, doc.autoTable.previous.finalY + 10);
-    const tableData = [
-        ...filteredData.filteredPendapatan.map(p => ['Pendapatan', p.kategori, `Rp ${p.jumlah.toLocaleString()}`, p.deskripsi, new Date(p.id).toLocaleDateString()]),
-        ...filteredData.filteredPengeluaran.map(e => ['Pengeluaran', e.kategori, `Rp ${e.jumlah.toLocaleString()}`, e.deskripsi, new Date(e.id).toLocaleDateString()])
-    ];
-    
-    doc.autoTable({
-        startY: doc.autoTable.previous.finalY + 15,
-        head: [['Jenis', 'Kategori', 'Jumlah', 'Deskripsi', 'Tanggal']],
-        body: tableData,
-        theme: 'striped'
+    // Tabel Pengeluaran
+    autoTable(doc, {
+      head: [["Kategori", "Jumlah", "Deskripsi", "Tanggal"]],
+      body: pengeluaran.map((p) => [
+        p.kategori_id,
+        `Rp ${p.kredit?.toLocaleString("id-ID")}`,
+        p.deskripsi || "-",
+        new Date(p.tanggal).toLocaleDateString("id-ID"),
+      ]),
+      startY: doc.lastAutoTable.finalY + 10,
     });
 
-    doc.save(`laporan_${bulanList[bulan]}_${tahun}.pdf`);
-  };
+    // Ringkasan
+    const finalY = doc.lastAutoTable.finalY || 22;
+    doc.text(
+      `Total Pendapatan: Rp ${totalPendapatan.toLocaleString("id-ID")}`,
+      14,
+      finalY + 20
+    );
+    doc.text(
+      `Total Pengeluaran: Rp ${totalPengeluaran.toLocaleString("id-ID")}`,
+      14,
+      finalY + 28
+    );
+    doc.text(
+      `Saldo Akhir: Rp ${(totalPendapatan - totalPengeluaran).toLocaleString(
+        "id-ID"
+      )}`,
+      14,
+      finalY + 36
+    );
 
-  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
+    doc.save("laporan-keuangan.pdf");
+  }
 
   return (
-    <>
-      {/* Headline & Filter */}
-      <div className="bg-white p-5 rounded-xl shadow-md mb-6">
-          <div className="flex justify-between items-center mb-4">
-              <div>
-                  <h2 className="text-2xl font-bold">Laporan Keuangan</h2>
-                  <p className="text-gray-500">Analisis Keuangan Anda dalam Genggaman</p>
-              </div>
-              <div className="flex gap-4">
-                  <select value={bulan} onChange={e => setBulan(parseInt(e.target.value))} className="border p-2 rounded">
-                      {bulanList.map((b, i) => <option key={i} value={i}>{b}</option>)}                  </select>
-                  <select value={tahun} onChange={e => setTahun(parseInt(e.target.value))} className="border p-2 rounded">
-                      {tahunList.map(t => <option key={t} value={t}>{t}</option>)}                  </select>
-                  <button onClick={exportPDF} className="bg-blue-600 text-white px-4 py-2 rounded">
-                      Export PDF
-                  </button>
-              </div>
-          </div>
-          <div className="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded-md">
-              <h3 className="font-bold">Keuntungan Bulan Ini</h3>
-              <p className="text-xl">Rp {keuntungan.toLocaleString()}</p>
-          </div>
+    <div className="p-6">
+      {/* Header + Export */}
+      <div className="bg-white rounded-xl shadow-md p-6 mb-6 flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Laporan Keuangan</h2>
+        <button
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          onClick={exportPDF}
+        >
+          Export PDF
+        </button>
       </div>
 
       {/* Ringkasan */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-6">
-        <SummaryCard title="Total Pendapatan" value={`Rp ${totalPendapatan.toLocaleString()}`} color="border-green-500" />
-        <SummaryCard title="Total Pengeluaran" value={`Rp ${totalPengeluaran.toLocaleString()}`} color="border-red-500" />
-        <SummaryCard title="Keuntungan" value={`Rp ${keuntungan.toLocaleString()}`} color="border-blue-500" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="bg-green-100 p-4 rounded-xl shadow">
+          <h3 className="text-lg font-semibold">Total Pendapatan</h3>
+          <p className="text-2xl font-bold text-green-700">
+            Rp {totalPendapatan.toLocaleString("id-ID")}
+          </p>
+        </div>
+        <div className="bg-red-100 p-4 rounded-xl shadow">
+          <h3 className="text-lg font-semibold">Total Pengeluaran</h3>
+          <p className="text-2xl font-bold text-red-700">
+            Rp {totalPengeluaran.toLocaleString("id-ID")}
+          </p>
+        </div>
+        <div className="bg-blue-100 p-4 rounded-xl shadow">
+          <h3 className="text-lg font-semibold">Saldo Akhir</h3>
+          <p className="text-2xl font-bold text-blue-700">
+            Rp {(totalPendapatan - totalPengeluaran).toLocaleString("id-ID")}
+          </p>
+        </div>
       </div>
 
-      {/* Grafik Tren & Komposisi */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="bg-white p-5 rounded-xl shadow-md">
-              <h3 className="text-lg font-semibold mb-4">Tren Keuntungan (per Bulan)</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={trendData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip formatter={(v) => `Rp ${v.toLocaleString()}`} />
-                      <Line type="monotone" dataKey="keuntungan" stroke="#16a34a" strokeWidth={2} />
-                  </LineChart>
-              </ResponsiveContainer>
-          </div>
-          <div className="bg-white p-5 rounded-xl shadow-md">
-              <h3 className="text-lg font-semibold mb-4">Komposisi Pengeluaran</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                      <Pie data={komposisiPengeluaran} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} fill="#8884d8" label>
-                          {komposisiPengeluaran.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                      </Pie>
-                      <Tooltip formatter={(v) => `Rp ${v.toLocaleString()}`} />
-                  </PieChart>
-              </ResponsiveContainer>
-          </div>
-      </div>
-      
-      {/* Analisis per Komoditas */}
-      <div className="bg-white p-5 rounded-xl shadow-md mb-6">
-        <h3 className="text-lg font-semibold mb-4">Analisis per Komoditas</h3>
-        <table className="w-full text-left border">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="p-2">Komoditas</th>
-              <th className="p-2">Total Pendapatan</th>
-              <th className="p-2">Total Pengeluaran</th>
-              <th className="p-2">Laba/Rugi</th>
+      {/* Tabel Pendapatan */}
+      <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+        <h3 className="text-xl font-semibold mb-4">Detail Pendapatan</h3>
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border p-2">Kategori</th>
+              <th className="border p-2">Jumlah</th>
+              <th className="border p-2">Deskripsi</th>
+              <th className="border p-2">Tanggal</th>
             </tr>
           </thead>
           <tbody>
-            {analisisKomoditas.map(item => (
-              <tr key={item.nama} className="border-t">
-                <td className="p-2 font-medium">{item.nama}</td>
-                <td className="p-2 text-green-600">Rp {item.pendapatan.toLocaleString()}</td>
-                <td className="p-2 text-red-600">Rp {item.pengeluaran.toLocaleString()}</td>
-                <td className={`p-2 font-bold ${item.laba >= 0 ? 'text-green-700' : 'text-red-700'}`}>Rp {item.laba.toLocaleString()}</td>
+            {pendapatan.length > 0 ? (
+              pendapatan.map((p, idx) => (
+                <tr key={idx}>
+                  <td className="border p-2">{p.kategori_id}</td>
+                  <td className="border p-2">
+                    Rp {p.debit?.toLocaleString("id-ID")}
+                  </td>
+                  <td className="border p-2">{p.deskripsi || "-"}</td>
+                  <td className="border p-2">
+                    {new Date(p.tanggal).toLocaleDateString("id-ID")}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="4" className="border p-2 text-center">
+                  Tidak ada data pendapatan
+                </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
-    </>
+
+      {/* Tabel Pengeluaran */}
+      <div className="bg-white rounded-xl shadow-md p-6">
+        <h3 className="text-xl font-semibold mb-4">Detail Pengeluaran</h3>
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border p-2">Kategori</th>
+              <th className="border p-2">Jumlah</th>
+              <th className="border p-2">Deskripsi</th>
+              <th className="border p-2">Tanggal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pengeluaran.length > 0 ? (
+              pengeluaran.map((p, idx) => (
+                <tr key={idx}>
+                  <td className="border p-2">{p.kategori_id}</td>
+                  <td className="border p-2">
+                    Rp {p.kredit?.toLocaleString("id-ID")}
+                  </td>
+                  <td className="border p-2">{p.deskripsi || "-"}</td>
+                  <td className="border p-2">
+                    {new Date(p.tanggal).toLocaleDateString("id-ID")}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="4" className="border p-2 text-center">
+                  Tidak ada data pengeluaran
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }

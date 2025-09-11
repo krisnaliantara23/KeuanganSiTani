@@ -1,7 +1,8 @@
-
-import React, { useState, useEffect, useMemo } from "react";
-import { getPengeluaran, addPengeluaran } from "../services/financeService";
-import "../styles/pendapatan.css"; // Menggunakan style yang sama dengan pendapatan
+import React, { useEffect, useState, useMemo } from "react";
+import {
+  getPengeluaran,
+  addPengeluaran,
+} from "../services/financeService";
 
 export default function PengeluaranPage() {
   const [pengeluaran, setPengeluaran] = useState([]);
@@ -13,13 +14,15 @@ export default function PengeluaranPage() {
     tanggal: "",
   });
 
+  const token = localStorage.getItem("token");
+
   useEffect(() => {
     loadData();
   }, []);
 
   async function loadData() {
     try {
-      const data = await getPengeluaran();
+      const data = await getPengeluaran(token);
       setPengeluaran(data);
     } catch (err) {
       console.error("Gagal ambil pengeluaran:", err);
@@ -29,7 +32,7 @@ export default function PengeluaranPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     try {
-      await addPengeluaran(form);
+      await addPengeluaran(token, form);
       setForm({ kategori_id: "", jumlah: 0, deskripsi: "", tanggal: "" });
       setShowModal(false);
       loadData();
@@ -40,14 +43,15 @@ export default function PengeluaranPage() {
 
   const transaksiTerakhir = useMemo(() => {
     if (pengeluaran.length === 0) return null;
-    // Sort by date to find the most recent transaction
-    const sorted = [...pengeluaran].sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
+    const sorted = [...pengeluaran].sort(
+      (a, b) => new Date(b.tanggal) - new Date(a.tanggal)
+    );
     return sorted[0];
   }, [pengeluaran]);
 
   return (
     <>
-      {/* Header section */}
+      {/* Header */}
       <div className="bg-white rounded-xl shadow-md p-6 mb-6 flex justify-between items-center">
         <h2 className="text-2xl font-bold">Pengeluaran Pertanian</h2>
         <button
@@ -61,25 +65,33 @@ export default function PengeluaranPage() {
       {/* Transaksi Terakhir */}
       {transaksiTerakhir && (
         <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-            <h3 className="text-lg font-semibold mb-4 border-b pb-2">Transaksi Terakhir</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                    <p className="text-sm text-gray-500">Tanggal</p>
-                    <p className="font-medium">{new Date(transaksiTerakhir.tanggal).toLocaleDateString("id-ID")}</p>
-                </div>
-                <div>
-                    <p className="text-sm text-gray-500">Jumlah</p>
-                    <p className="font-medium text-red-600">Rp {transaksiTerakhir.kredit?.toLocaleString("id-ID")}</p>
-                </div>
-                <div>
-                    <p className="text-sm text-gray-500">Kategori</p>
-                    <p className="font-medium">{transaksiTerakhir.kategori_id}</p>
-                </div>
-                <div>
-                    <p className="text-sm text-gray-500">Deskripsi</p>
-                    <p className="font-medium">{transaksiTerakhir.deskripsi || "-"}</p>
-                </div>
+          <h3 className="text-lg font-semibold mb-4 border-b pb-2">
+            Transaksi Terakhir
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <p className="text-sm text-gray-500">Tanggal</p>
+              <p className="font-medium">
+                {new Date(transaksiTerakhir.tanggal).toLocaleDateString("id-ID")}
+              </p>
             </div>
+            <div>
+              <p className="text-sm text-gray-500">Jumlah</p>
+              <p className="font-medium text-red-600">
+                Rp {transaksiTerakhir.kredit?.toLocaleString("id-ID")}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Kategori</p>
+              <p className="font-medium">{transaksiTerakhir.kategori_id}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Deskripsi</p>
+              <p className="font-medium">
+                {transaksiTerakhir.deskripsi || "-"}
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -123,17 +135,14 @@ export default function PengeluaranPage() {
                 onChange={(e) =>
                   setForm({ ...form, kategori_id: e.target.value })
                 }
-                className="p-2 border rounded"
                 required
               >
-                <option value="" disabled>Pilih Kategori</option>
-                <option value="Bibit">Bibit</option>
+                <option value="">Pilih kategori</option>
                 <option value="Pupuk">Pupuk</option>
+                <option value="Bibit">Bibit</option>
                 <option value="Pestisida">Pestisida</option>
-                <option value="Alat & Mesin">Alat & Mesin</option>
-                <option value="Upah Tenaga Kerja">Upah Tenaga Kerja</option>
-                <option value="Transportasi">Transportasi</option>
-                <option value="Lain-lain">Lain-lain</option>
+                <option value="Alat">Alat</option>
+                <option value="Tenaga_Kerja">Tenaga Kerja</option>
               </select>
 
               <input

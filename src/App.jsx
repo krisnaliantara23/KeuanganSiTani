@@ -1,7 +1,9 @@
 // src/App.jsx
-import React from "react";
+import React, { useEffect } from "react"; // Import useEffect
 import { DataProvider } from "./context/DataContext";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import Lenis from "lenis"; // Import Lenis
 
 // Pages
 import LoginPage from "./pages/LoginPage";
@@ -21,19 +23,70 @@ import FAQ from "./component/FAQ";
 import Layout from "./component/Layout";
 import ProtectedRoute from "./component/ProtectedRoute";
 
+// Konfigurasi animasi
+const pageVariants = {
+  initial: {
+    opacity: 0,
+  },
+  in: {
+    opacity: 1,
+  },
+  out: {
+    opacity: 0,
+  },
+};
+
+const pageTransition = {
+  type: "tween",
+  ease: "linear",
+  duration: 0.3,
+};
+
+// Wrapper untuk animasi halaman publik
+const PageWrapper = ({ children }) => (
+  <motion.div
+    initial="initial"
+    animate="in"
+    exit="out"
+    variants={pageVariants}
+    transition={pageTransition}
+  >
+    {children}
+  </motion.div>
+);
+
 function App() {
+  const location = useLocation();
+
+  // Efek untuk smooth scroll dengan Lenis
+  useEffect(() => {
+    const lenis = new Lenis();
+
+    function raf(time) {
+      lenis.raf(time);
+      requestAnimationFrame(raf);
+    }
+
+    requestAnimationFrame(raf);
+
+    // Cleanup
+    return () => {
+      lenis.destroy();
+    };
+  }, []);
+
   return (
-    <Router>
-      <DataProvider>
-        <Routes>
+    <DataProvider>
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
           {/* Halaman public */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/syarat-dan-ketentuan" element={<SyaratDanKetentuan />} />
-          <Route path="/lupa-kata-sandi" element={<LupaKataSandi />} />
-          <Route path="/panduan" element={<PanduanPage />} />
-          <Route path="/faq" element={<FAQ />} />
+          <Route path="/" element={<PageWrapper><LandingPage /></PageWrapper>} />
+          <Route path="/login" element={<PageWrapper><LoginPage /></PageWrapper>} />
+          <Route path="/register" element={<PageWrapper><RegisterPage /></PageWrapper>} />
+          <Route path="/syarat-dan-ketentuan" element={<PageWrapper><SyaratDanKetentuan /></PageWrapper>} />
+          <Route path="/lupa-kata-sandi" element={<PageWrapper><LupaKataSandi /></PageWrapper>} />
+          <Route path="/panduan" element={<PageWrapper><PanduanPage /></PageWrapper>} />
+          <Route path="/faq" element={<PageWrapper><FAQ /></PageWrapper>} />
 
           {/* Halaman dengan sidebar & header (hanya bisa diakses kalau login) */}
           <Route
@@ -88,11 +141,20 @@ function App() {
           />
 
           {/* fallback route → kalau path ga dikenal, kembalikan ke landing */}
-          <Route path="*" element={<LandingPage />} />
+          <Route path="*" element={<PageWrapper><LandingPage /></PageWrapper>} />
         </Routes>
-      </DataProvider>
+      </AnimatePresence>
+    </DataProvider>
+  );
+}
+
+// Karena useLocation butuh ada di dalam Router, kita buat komponen AppWrapper
+function AppWrapper() {
+  return (
+    <Router>
+      <App />
     </Router>
   );
 }
 
-export default App;
+export default AppWrapper;
