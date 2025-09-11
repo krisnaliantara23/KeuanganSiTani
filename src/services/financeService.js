@@ -16,12 +16,12 @@ export async function getPendapatan(token) {
 export async function addPendapatan(token, data) {
   const payload = {
     jenis: "pemasukan",
-    akun_id: data.akun_id || 1,
+    akun_id: data.akun_id,
     debit: data.jumlah,
     kredit: 0,
     items: [
       {
-        produk_id: data.produk_id || 1,
+        produk_id: data.produk_id,
         jumlah: 1,
         subtotal: data.jumlah
       }

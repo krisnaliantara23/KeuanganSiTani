@@ -1,13 +1,17 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:3000/api/products";
+const API_URL = "https://be-laporankeuangan.up.railway.app/api/produk";
 
 export const getProducts = async (params = {}) => {
-  return axios.get(API_URL, { params });
+  return axios.get(`${API_URL}/saya`, { 
+    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+   });
 };
 
 export const getProductById = async (id) => {
-  return axios.get(`${API_URL}/${id}`);
+  return axios.get(`${API_URL}/${id}`, {
+    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+  });
 };
 
 export const createProduct = async (data) => {
