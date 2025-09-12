@@ -24,3 +24,7 @@ export const updateAkunKas = async (id, data) => {
 export const deleteAkunKas = async (id) => {
   return axios.delete(`${API_URL}/${id}`, auth());
 };
+
+export const getArusKas = async () => {
+  return axios.get(`${API_URL}/arus-kas`, auth());
+};

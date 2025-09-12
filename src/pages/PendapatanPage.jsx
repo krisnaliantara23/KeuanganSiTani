@@ -50,7 +50,7 @@ export default function PendapatanPage() {
   const token = localStorage.getItem("token");
 
   useEffect(() => {
-    loadData();
+    loadInitialData(); // ✅ Fixed: changed from loadData() to loadInitialData()
     loadProducts();
     loadAkunKas();
   }, []);

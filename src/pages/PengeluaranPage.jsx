@@ -38,7 +38,7 @@ export default function PengeluaranPage() {
   const [displaySaldo, setDisplaySaldo] = useState("");
 
   useEffect(() => {
-    loadData();
+    loadInitialData(); // ✅ Fixed: changed from loadData() to loadInitialData()
     loadProducts();
     loadAkunKas();
   }, []);

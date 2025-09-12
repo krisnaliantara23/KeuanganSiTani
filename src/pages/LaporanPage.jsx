@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { getPendapatan, getPengeluaran, getNeracaSummary } from "../services/financeService";
-import Neraca from "../component/Neraca"; // Impor komponen Neraca
+import { getArusKas } from "../services/akunKasService";
+import Neraca from "../component/Neraca";
+import ArusKas from "../component/ArusKas";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 export default function LaporanPage() {
-  const [activeTab, setActiveTab] = useState("labaRugi"); // State untuk tab
+  const [activeTab, setActiveTab] = useState("labaRugi");
   const [pendapatan, setPendapatan] = useState([]);
   const [pengeluaran, setPengeluaran] = useState([]);
-  const [neracaData, setNeracaData] = useState(null); // State untuk data neraca
+  const [neracaData, setNeracaData] = useState(null);
+  const [arusKasData, setArusKasData] = useState([]);
   const [totalPendapatan, setTotalPendapatan] = useState(0);
   const [totalPengeluaran, setTotalPengeluaran] = useState(0);
 
@@ -20,23 +23,35 @@ export default function LaporanPage() {
 
   async function loadData() {
     try {
+      const token = localStorage.getItem("token");
+  
       // Laba Rugi
       const dataPendapatan = await getPendapatan(token);
       const dataPengeluaran = await getPengeluaran(token);
-      const pendapatanList = dataPendapatan?.data || dataPendapatan || [];
-      const pengeluaranList = dataPengeluaran?.data || dataPengeluaran || [];
+      const pendapatanList = dataPendapatan?.data || [];
+      const pengeluaranList = dataPengeluaran?.data || [];
       setPendapatan(pendapatanList);
       setPengeluaran(pengeluaranList);
       setTotalPendapatan(pendapatanList.reduce((sum, item) => sum + (item.debit || 0), 0));
       setTotalPengeluaran(pengeluaranList.reduce((sum, item) => sum + (item.kredit || 0), 0));
-
+  
       // Neraca
       const dataNeraca = await getNeracaSummary(token);
-      setNeracaData(dataNeraca.data);
-
+      setNeracaData(dataNeraca?.data || null);
+  
+      // Arus Kas
+      const dataArusKas = await getArusKas(token);
+      setArusKasData(dataArusKas?.data || []);
+  
     } catch (err) {
       console.error("Gagal ambil laporan:", err);
     }
+  }
+
+  function formatTanggal(dateString) {
+    if (!dateString) return "-";
+    const d = new Date(dateString);
+    return isNaN(d) ? "-" : d.toLocaleDateString("id-ID");
   }
 
   function exportPDF() {
@@ -45,6 +60,7 @@ export default function LaporanPage() {
 
     if (activeTab === "labaRugi") {
       doc.text("Laporan Laba Rugi", 14, 22);
+
       // Tabel Pendapatan
       autoTable(doc, {
         head: [["Kategori", "Jumlah", "Deskripsi", "Tanggal"]],
@@ -52,7 +68,7 @@ export default function LaporanPage() {
           p.kategori_id,
           `Rp ${p.debit?.toLocaleString("id-ID")}`,
           p.deskripsi || "-",
-          new Date(p.created_at).toLocaleDateString("id-ID"),
+          formatTanggal(p.created_at),
         ]),
         startY: 30,
       });
@@ -64,43 +80,110 @@ export default function LaporanPage() {
           p.kategori_id,
           `Rp ${p.kredit?.toLocaleString("id-ID")}`,
           p.deskripsi || "-",
-          new Date(p.created_at).toLocaleDateString("id-ID"),
+          formatTanggal(p.created_at),
         ]),
         startY: doc.lastAutoTable.finalY + 10,
       });
-      
+
       const finalY = doc.lastAutoTable.finalY || 22;
-      doc.text(`Total Pendapatan: Rp ${totalPendapatan.toLocaleString("id-ID")}`, 14, finalY + 20);
-      doc.text(`Total Pengeluaran: Rp ${totalPengeluaran.toLocaleString("id-ID")}`, 14, finalY + 28);
-      doc.text(`Saldo Akhir: Rp ${(totalPendapatan - totalPengeluaran).toLocaleString("id-ID")}`, 14, finalY + 36);
-    } else {
+      doc.text(
+        `Total Pendapatan: Rp ${totalPendapatan.toLocaleString("id-ID")}`,
+        14,
+        finalY + 20
+      );
+      doc.text(
+        `Total Pengeluaran: Rp ${totalPengeluaran.toLocaleString("id-ID")}`,
+        14,
+        finalY + 28
+      );
+      doc.text(
+        `Saldo Akhir: Rp ${(totalPendapatan - totalPengeluaran).toLocaleString("id-ID")}`,
+        14,
+        finalY + 36
+      );
+    } else if (activeTab === "neraca" && neracaData) {
       doc.text("Laporan Neraca", 14, 22);
+
       // Aset
       autoTable(doc, {
         head: [["Aset", "Nama Akun", "Jumlah"]],
         body: [
-          ...(neracaData.aset_lancar?.items.map(item => ["Aset Lancar", item.produk_nama, `Rp ${item.saldo.toLocaleString('id-ID')}`]) || []),
-          ...(neracaData.aset_tetap?.items.map(item => ["Aset Tetap", item.produk_nama, `Rp ${item.saldo.toLocaleString('id-ID')}`]) || []),
-          ["", "Total Aset", `Rp ${neracaData.total_aset.toLocaleString('id-ID')}`]
+          ...(neracaData.aset_lancar?.items?.map((item) => [
+            "Aset Lancar",
+            item.produk_nama,
+            `Rp ${item.saldo.toLocaleString("id-ID")}`,
+          ]) || []),
+          ...(neracaData.aset_tetap?.items?.map((item) => [
+            "Aset Tetap",
+            item.produk_nama,
+            `Rp ${item.saldo.toLocaleString("id-ID")}`,
+          ]) || []),
+          ["", "Total Aset", `Rp ${neracaData.total_aset?.toLocaleString("id-ID")}`],
         ],
         startY: 30,
       });
+
       // Kewajiban
       autoTable(doc, {
         head: [["Kewajiban", "Nama Akun", "Jumlah"]],
         body: [
-          ...(neracaData.kewajiban_lancar?.items.map(item => ["Kewajiban Lancar", item.produk_nama, `Rp ${item.saldo.toLocaleString('id-ID')}`]) || []),
-          ...(neracaData.kewajiban_jangka_panjang?.items.map(item => ["Kewajiban Jangka Panjang", item.produk_nama, `Rp ${item.saldo.toLocaleString('id-ID')}`]) || []),
-          ["", "Total Kewajiban", `Rp ${neracaData.total_kewajiban.toLocaleString('id-ID')}`]
+          ...(neracaData.kewajiban_lancar?.items?.map((item) => [
+            "Kewajiban Lancar",
+            item.produk_nama,
+            `Rp ${item.saldo.toLocaleString("id-ID")}`,
+          ]) || []),
+          ...(neracaData.kewajiban_jangka_panjang?.items?.map((item) => [
+            "Kewajiban Jangka Panjang",
+            item.produk_nama,
+            `Rp ${item.saldo.toLocaleString("id-ID")}`,
+          ]) || []),
+          [
+            "",
+            "Total Kewajiban",
+            `Rp ${neracaData.total_kewajiban?.toLocaleString("id-ID")}`,
+          ],
         ],
         startY: doc.lastAutoTable.finalY + 10,
       });
+
       const finalY = doc.lastAutoTable.finalY || 22;
-      doc.text(`Total (Aset - Kewajiban): Rp ${neracaData.total.toLocaleString('id-ID')}`, 14, finalY + 20);
+      doc.text(
+        `Total (Aset - Kewajiban): Rp ${neracaData.total?.toLocaleString("id-ID")}`,
+        14,
+        finalY + 20
+      );
+    } else if (activeTab === "arusKas") {
+      doc.text("Laporan Arus Kas", 14, 22);
+      autoTable(doc, {
+        head: [["Nama Akun Kas", "Saldo Akhir"]],
+        body: arusKasData.map(item => [
+          item.nama_akun,
+          `Rp ${item.saldo_akhir.toLocaleString('id-ID')}`
+        ]),
+        startY: 30,
+        foot: [[
+          "Total Saldo Kas",
+          `Rp ${arusKasData.reduce((sum, item) => sum + item.saldo_akhir, 0).toLocaleString('id-ID')}`
+        ]]
+      });
     }
+
 
     doc.save("laporan-keuangan.pdf");
   }
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case "labaRugi":
+        return renderLabaRugi();
+      case "neraca":
+        return <Neraca data={neracaData} />;
+      case "arusKas":
+        return <ArusKas data={arusKasData} />;
+      default:
+        return null;
+    }
+  };
 
   const renderLabaRugi = () => (
     <>
@@ -108,15 +191,21 @@ export default function LaporanPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div className="bg-green-100 p-4 rounded-xl shadow">
           <h3 className="text-lg font-semibold">Total Pendapatan</h3>
-          <p className="text-2xl font-bold text-green-700">Rp {totalPendapatan.toLocaleString("id-ID")}</p>
+          <p className="text-2xl font-bold text-green-700">
+            Rp {totalPendapatan.toLocaleString("id-ID")}
+          </p>
         </div>
         <div className="bg-red-100 p-4 rounded-xl shadow">
           <h3 className="text-lg font-semibold">Total Pengeluaran</h3>
-          <p className="text-2xl font-bold text-red-700">Rp {totalPengeluaran.toLocaleString("id-ID")}</p>
+          <p className="text-2xl font-bold text-red-700">
+            Rp {totalPengeluaran.toLocaleString("id-ID")}
+          </p>
         </div>
         <div className="bg-blue-100 p-4 rounded-xl shadow">
           <h3 className="text-lg font-semibold">Saldo Akhir</h3>
-          <p className="text-2xl font-bold text-blue-700">Rp {(totalPendapatan - totalPengeluaran).toLocaleString("id-ID")}</p>
+          <p className="text-2xl font-bold text-blue-700">
+            Rp {(totalPendapatan - totalPengeluaran).toLocaleString("id-ID")}
+          </p>
         </div>
       </div>
 
@@ -124,14 +213,32 @@ export default function LaporanPage() {
       <div className="bg-white rounded-xl shadow-md p-6 mb-6">
         <h3 className="text-xl font-semibold mb-4">Detail Pendapatan</h3>
         <table className="w-full border-collapse">
-          <thead><tr className="bg-gray-100"><th className="border p-2">Kategori</th><th className="border p-2">Jumlah</th><th className="border p-2">Deskripsi</th><th className="border p-2">Tanggal</th></tr></thead>
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border p-2">Kategori</th>
+              <th className="border p-2">Jumlah</th>
+              <th className="border p-2">Deskripsi</th>
+              <th className="border p-2">Tanggal</th>
+            </tr>
+          </thead>
           <tbody>
             {pendapatan.length > 0 ? (
               pendapatan.map((p, idx) => (
-                <tr key={idx}><td className="border p-2">{p.kategori_id}</td><td className="border p-2">Rp {p.debit?.toLocaleString("id-ID")}</td><td className="border p-2">{p.deskripsi || "-"}</td><td className="border p-2">{new Date(p.created_at).toLocaleDateString("id-ID")}</td></tr>
+                <tr key={idx}>
+                  <td className="border p-2">{p.kategori_id}</td>
+                  <td className="border p-2">
+                    Rp {p.debit?.toLocaleString("id-ID")}
+                  </td>
+                  <td className="border p-2">{p.deskripsi || "-"}</td>
+                  <td className="border p-2">{formatTanggal(p.created_at)}</td>
+                </tr>
               ))
             ) : (
-              <tr><td colSpan="4" className="border p-2 text-center">Tidak ada data pendapatan</td></tr>
+              <tr>
+                <td colSpan="4" className="border p-2 text-center">
+                  Tidak ada data pendapatan
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
@@ -141,14 +248,32 @@ export default function LaporanPage() {
       <div className="bg-white rounded-xl shadow-md p-6">
         <h3 className="text-xl font-semibold mb-4">Detail Pengeluaran</h3>
         <table className="w-full border-collapse">
-          <thead><tr className="bg-gray-100"><th className="border p-2">Kategori</th><th className="border p-2">Jumlah</th><th className="border p-2">Deskripsi</th><th className="border p-2">Tanggal</th></tr></thead>
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border p-2">Kategori</th>
+              <th className="border p-2">Jumlah</th>
+              <th className="border p-2">Deskripsi</th>
+              <th className="border p-2">Tanggal</th>
+            </tr>
+          </thead>
           <tbody>
             {pengeluaran.length > 0 ? (
               pengeluaran.map((p, idx) => (
-                <tr key={idx}><td className="border p-2">{p.kategori_id}</td><td className="border p-2">Rp {p.kredit?.toLocaleString("id-ID")}</td><td className="border p-2">{p.deskripsi || "-"}</td><td className="border p-2">{new Date(p.created_at).toLocaleDateString("id-ID")}</td></tr>
+                <tr key={idx}>
+                  <td className="border p-2">{p.kategori_id}</td>
+                  <td className="border p-2">
+                    Rp {p.kredit?.toLocaleString("id-ID")}
+                  </td>
+                  <td className="border p-2">{p.deskripsi || "-"}</td>
+                  <td className="border p-2">{formatTanggal(p.created_at)}</td>
+                </tr>
               ))
             ) : (
-              <tr><td colSpan="4" className="border p-2 text-center">Tidak ada data pengeluaran</td></tr>
+              <tr>
+                <td colSpan="4" className="border p-2 text-center">
+                  Tidak ada data pengeluaran
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
@@ -161,23 +286,51 @@ export default function LaporanPage() {
       {/* Header + Export */}
       <div className="bg-white rounded-xl shadow-md p-6 mb-6 flex justify-between items-center">
         <h2 className="text-2xl font-bold">Laporan Keuangan</h2>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" onClick={exportPDF}>
+        <button
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          onClick={exportPDF}
+        >
           Export PDF
         </button>
       </div>
 
       {/* Tab Buttons */}
       <div className="mb-6 flex border-b">
-        <button onClick={() => setActiveTab("labaRugi")} className={`py-2 px-4 font-semibold ${activeTab === 'labaRugi' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>
+        <button
+          onClick={() => setActiveTab("labaRugi")}
+          className={`py-2 px-4 font-semibold ${
+            activeTab === "labaRugi"
+              ? "border-b-2 border-blue-600 text-blue-600"
+              : "text-gray-500"
+          }`}
+        >
           Laporan Laba Rugi
         </button>
-        <button onClick={() => setActiveTab("neraca")} className={`py-2 px-4 font-semibold ${activeTab === 'neraca' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>
+        <button
+          onClick={() => setActiveTab("neraca")}
+          className={`py-2 px-4 font-semibold ${
+            activeTab === "neraca"
+              ? "border-b-2 border-blue-600 text-blue-600"
+              : "text-gray-500"
+          }`}
+        >
           Laporan Neraca
+        </button>
+        <button
+          onClick={() => setActiveTab("arusKas")}
+          className={`py-2 px-4 font-semibold ${
+            activeTab === "arusKas"
+              ? "border-b-2 border-blue-600 text-blue-600"
+              : "text-gray-500"
+          }`}
+        >
+          Laporan Arus Kas
         </button>
       </div>
 
-      {/* Content based on active tab */}
-      {activeTab === "labaRugi" ? renderLabaRugi() : <Neraca data={neracaData} />}
+      {/* Content */}
+      {renderContent()}
+
     </div>
   );
 }
