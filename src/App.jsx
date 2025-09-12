@@ -17,6 +17,7 @@ import PendapatanPage from "./pages/PendapatanPage";
 import PengeluaranPage from "./pages/PengeluaranPage";
 import LaporanPage from "./pages/LaporanPage";
 import PengaturanPage from "./pages/PengaturanPage";
+import AturProdukPage from "./pages/AturProdukPage";
 import FAQ from "./component/FAQ";
 
 // Components
@@ -84,6 +85,7 @@ function App() {
           <Route path="/login" element={<PageWrapper><LoginPage /></PageWrapper>} />
           <Route path="/register" element={<PageWrapper><RegisterPage /></PageWrapper>} />
           <Route path="/syarat-dan-ketentuan" element={<PageWrapper><SyaratDanKetentuan /></PageWrapper>} />
+          {/* <Route path="/Atur-Produk" element={<PageWrapper><AturProdukPage/></PageWrapper>} /> */}
           <Route path="/lupa-kata-sandi" element={<PageWrapper><LupaKataSandi /></PageWrapper>} />
           <Route path="/panduan" element={<PageWrapper><PanduanPage /></PageWrapper>} />
           <Route path="/faq" element={<PageWrapper><FAQ /></PageWrapper>} />
@@ -135,6 +137,16 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <PengaturanPage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/atur-produk"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <AturProdukPage />
                 </Layout>
               </ProtectedRoute>
             }

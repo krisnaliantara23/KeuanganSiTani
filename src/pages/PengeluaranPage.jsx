@@ -7,23 +7,15 @@ import {
   deletePengeluaran,
   getLaporanById,
 } from "../services/financeService";
-import {
-  getProducts,
-  createProduct,
-  updateProduct,
-  deleteProduct,
-} from "../services/productService";
-import {
-  listAkunKas,
-  createAkunKas,
-  updateAkunKas,
-  deleteAkunKas,
-} from "../services/akunKasService";
+import { getProducts } from "../services/productService";
+import { listAkunKas } from "../services/akunKasService";
 import { listKategoriScopev2 } from "../services/kategoriService";
 import "../styles/pendapatan.css";
 
 export default function PengeluaranPage() {
-  // ====================== UTIL & HELPERS ======================
+  const token = localStorage.getItem("token");
+
+  // ===== Utils
   const formatRupiah = (v) =>
     !v
       ? ""
@@ -34,13 +26,12 @@ export default function PengeluaranPage() {
         }).format(v);
 
   const getScopeParams = (extra = {}) => {
-    let user_id = null,
-      klaster_id = null;
+    let user_id = null, klaster_id = null;
     try {
       const raw = localStorage.getItem("user");
       if (raw) {
         const obj = JSON.parse(raw);
-        user_id = obj?.user_id || obj; // support string/plain
+        user_id = obj?.user_id || obj;
         klaster_id = obj?.klaster_id || null;
       }
     } catch {}
@@ -53,22 +44,14 @@ export default function PengeluaranPage() {
   const isShared = (obj) =>
     Boolean(obj?.share_to_klaster ?? obj?.share_klaster ?? obj?.klaster_id);
 
-  // ====================== STATE ======================
+  // ===== State (khusus pengeluaran)
   const [pengeluaran, setPengeluaran] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [produkPengeluaran, setProdukPengeluaran] = useState([]); // hanya untuk dropdown modal
+  const [produkPengeluaran, setProdukPengeluaran] = useState([]); // dropdown item
   const [akunKas, setAkunKas] = useState([]);
-  const [kategoriOpsi, setKategoriOpsi] = useState([]); // untuk edit produk (dropdown kategori)
 
-  // filter laporan: all | own | shared
+  // filter & modal
   const [filterShare, setFilterShare] = useState("all");
-
-  // modal
   const [showModal, setShowModal] = useState(false);
-  const [showProductModal, setShowProductModal] = useState(false);
-  const [showAkunModal, setShowAkunModal] = useState(false);
-
-  // edit/delete state
   const [editingId, setEditingId] = useState(null);
   const [replaceItems, setReplaceItems] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
@@ -82,132 +65,65 @@ export default function PengeluaranPage() {
     share_to_klaster: false,
   });
 
-  // form kategori/produk
-  const [createCatOpts, setCreateCatOpts] = useState([]);
-  const [createCatId, setCreateCatId] = useState("");
-  const [createCatLoading, setCreateCatLoading] = useState(false);
-
-  // items (multi baris)
+  // items multi-baris
   const [items, setItems] = useState([{ produk_id: 0, qty: 1, harga_satuan: 0 }]);
   const [hargaDisplay, setHargaDisplay] = useState([""]);
 
-  // form tambah produk/kategori
-  const [productForm, setProductForm] = useState({
-    nama: "",
-    kategori_nama: "",
-    share_to_klaster: false,
-  });
-
-  // kelola produk (inline editor)
-  const [productEditId, setProductEditId] = useState(null);
-  const [productEditForm, setProductEditForm] = useState({
-    nama: "",
-    kategori_id: 0, // dropdown kategori scope
-    share_to_klaster: false,
-  });
-
-  // form akun kas
-  const [akunForm, setAkunForm] = useState({
-    nama: "",
-    deskripsi: "",
-    saldo_awal: 0,
-    share_to_klaster: false,
-  });
-  const [displaySaldo, setDisplaySaldo] = useState("");
-
-  // kelola akun (inline editor)
-  const [akunEditId, setAkunEditId] = useState(null);
-  const [akunEditForm, setAkunEditForm] = useState({
-    nama: "",
-    deskripsi: "",
-    share_to_klaster: false,
-  });
-
-  // ====================== LOADERS ======================
+  // ===== Loaders
   useEffect(() => {
     loadInitialData();
-    loadProducts();
+    loadProductsForDropdown();
     loadAkunKas();
   }, []);
 
   async function loadInitialData() {
     try {
-      const data = await getPengeluaran(localStorage.getItem("token"));
-      setPengeluaran(data);
+      const data = await getPengeluaran(token);
+      setPengeluaran(data || []);
     } catch (err) {
       console.error("Gagal ambil pengeluaran:", err);
+      setPengeluaran([]);
     }
   }
 
-  async function loadProducts() {
+  async function loadProductsForDropdown() {
+    // Hanya produk kategori "pengeluaran"
     try {
-      const [resProduk, resKatPengeluaran] = await Promise.all([
+      const [resProduk, resKat] = await Promise.all([
         getProducts(),
         listKategoriScopev2(getScopeParams({ jenis: "pengeluaran", limit: 200 })),
       ]);
-      const list =
-        Array.isArray(resProduk.data?.data) ? resProduk.data.data : resProduk.data || [];
-      setProducts(list);
 
-      // filter untuk modal transaksi: hanya produk dengan kategori jenis pengeluaran
-      const katList = Array.isArray(resKatPengeluaran.data?.data)
-        ? resKatPengeluaran.data.data
-        : [];
+      const listProduk = Array.isArray(resProduk.data?.data)
+        ? resProduk.data.data
+        : resProduk.data || [];
+
+      const katList = Array.isArray(resKat.data?.data) ? resKat.data.data : [];
       const pengeluaranIds = new Set(katList.map((k) => Number(k.kategori_id)));
 
-      const onlyExpense = list.filter((p) => {
-        const jenis =
-          (p.kategori_jenis ||
-            p.jenis_kategori ||
-            p.kategori?.jenis ||
-            p.jenis ||
-            "")?.toLowerCase();
+      const onlyExpense = listProduk.filter((p) => {
+        const jenis = (
+          p.kategori_jenis ||
+          p.jenis_kategori ||
+          p.kategori?.jenis ||
+          p.jenis ||
+          ""
+        ).toLowerCase();
         if (jenis) return jenis === "pengeluaran";
-        return pengeluaranIds.size
-          ? pengeluaranIds.has(Number(p.kategori_id))
-          : false;
+        return pengeluaranIds.size ? pengeluaranIds.has(Number(p.kategori_id)) : false;
       });
+
       setProdukPengeluaran(onlyExpense);
     } catch (err) {
       console.error("Gagal ambil produk/kategori:", err);
-      setProducts([]);
       setProdukPengeluaran([]);
     }
   }
-  // untuk dropdown kategori di modal tambah produk
-  async function loadKategoriForCreate() {
-  try {
-    setCreateCatLoading(true);
-    // filter sesuai kebutuhan: di Pendapatan → ambil kategori jenis "pemasukan"
-    const res = await listKategoriScopev2(getScopeParams({ jenis: "pengeluaran", limit: 200 }));
-    const list = Array.isArray(res.data?.data) ? res.data.data : [];
-    setCreateCatOpts(list);
-  } catch (e) {
-    console.error("Gagal load kategori (create product):", e);
-    setCreateCatOpts([]);
-  } finally {
-    setCreateCatLoading(false);
-  }
-}
-  // untuk edit produk
-  async function loadKategoriScopeForEdit() {
-    try {
-      const res = await listKategoriScopev2(
-        getScopeParams({ jenis: "pengeluaran", limit: 200 })
-      );
-      const list = Array.isArray(res.data?.data) ? res.data.data : [];
-      setKategoriOpsi(list);
-    } catch (e) {
-      console.error("Gagal ambil kategori scope:", e);
-      setKategoriOpsi([]);
-    }
-  }
 
-  async function loadAkunKas(params = { page: 1, limit: 50 }) {
+  async function loadAkunKas(params = { page: 1, limit: 100 }) {
     try {
       const res = await listAkunKas(params);
-      const list =
-        Array.isArray(res.data?.data) ? res.data.data : res.data?.data || [];
+      const list = Array.isArray(res.data?.data) ? res.data.data : res.data?.data || [];
       setAkunKas(list);
     } catch (err) {
       console.error("Gagal ambil akun kas:", err);
@@ -215,7 +131,7 @@ export default function PengeluaranPage() {
     }
   }
 
-  // ====================== ITEMS HANDLERS ======================
+  // ===== Items handlers
   const subtot = (r) => Number(r.qty || 0) * Number(r.harga_satuan || 0);
   const total = useMemo(() => items.reduce((s, r) => s + subtot(r), 0), [items]);
 
@@ -254,15 +170,7 @@ export default function PengeluaranPage() {
     );
   };
 
-  // ====================== AKUN KAS HANDLERS ======================
-  const handleChangeSaldoAwal = (e) => {
-    const raw = e.target.value.replace(/\D/g, "");
-    const num = Number(raw);
-    setAkunForm({ ...akunForm, saldo_awal: num });
-    setDisplaySaldo(raw ? formatRupiah(num) : "");
-  };
-
-  // ====================== CRUD TRANSAKSI ======================
+  // ===== CRUD transaksi
   async function submitLaporan(e) {
     e.preventDefault();
     if (!form.akun_id) return alert("Pilih Akun Kas dulu.");
@@ -271,8 +179,7 @@ export default function PengeluaranPage() {
     for (const r of items) {
       if (!r.produk_id) return alert("Ada baris tanpa produk.");
       if (!r.qty || r.qty <= 0) return alert("Qty harus > 0.");
-      if (!r.harga_satuan || r.harga_satuan <= 0)
-        return alert("Harga satuan harus > 0.");
+      if (!r.harga_satuan || r.harga_satuan <= 0) return alert("Harga satuan harus > 0.");
     }
 
     const mappedItems = items.map((r) => ({
@@ -284,7 +191,7 @@ export default function PengeluaranPage() {
 
     try {
       if (editingId) {
-        await updatePengeluaran(localStorage.getItem("token"), editingId, {
+        await updatePengeluaran(token, editingId, {
           jenis: "pengeluaran",
           debit: 0,
           kredit: total,
@@ -295,7 +202,7 @@ export default function PengeluaranPage() {
           ...(replaceItems ? { items: mappedItems } : {}),
         });
       } else {
-        await addPengeluaran(localStorage.getItem("token"), {
+        await addPengeluaran(token, {
           jenis: "pengeluaran",
           debit: 0,
           kredit: total,
@@ -325,9 +232,8 @@ export default function PengeluaranPage() {
     setEditingId(row.id_laporan);
     setShowModal(true);
     try {
-      const res = await getLaporanById(localStorage.getItem("token"), row.id_laporan);
+      const res = await getLaporanById(token, row.id_laporan);
       const d = res.data?.data || res.data || {};
-
       setForm({
         akun_id: Number(d.akun_id ?? row.akun_id) || 0,
         deskripsi: d.deskripsi ?? row.deskripsi ?? "",
@@ -353,9 +259,7 @@ export default function PengeluaranPage() {
 
       if (its.length) {
         setItems(its);
-        setHargaDisplay(
-          its.map((x) => (x.harga_satuan ? formatRupiah(x.harga_satuan) : ""))
-        );
+        setHargaDisplay(its.map((x) => (x.harga_satuan ? formatRupiah(x.harga_satuan) : "")));
         setReplaceItems(false);
       } else {
         setItems([{ produk_id: 0, qty: 1, harga_satuan: 0 }]);
@@ -397,7 +301,7 @@ export default function PengeluaranPage() {
     }
     try {
       setDeletingId(row.id_laporan);
-      await deletePengeluaran(localStorage.getItem("token"), row.id_laporan);
+      await deletePengeluaran(token, row.id_laporan);
       alert("Berhasil hapus pengeluaran.");
       await loadInitialData();
     } catch (err) {
@@ -408,7 +312,7 @@ export default function PengeluaranPage() {
     }
   };
 
-  // ====================== DERIVED ======================
+  // ===== Derived
   const pengeluaranFiltered = useMemo(() => {
     if (filterShare === "own") return pengeluaran.filter((x) => !isShared(x));
     if (filterShare === "shared") return pengeluaran.filter((x) => isShared(x));
@@ -432,7 +336,7 @@ export default function PengeluaranPage() {
     };
   }, [transaksiTerakhir, akunKas]);
 
-  // ====================== RENDER ======================
+  // ===== Render
   return (
     <>
       {/* Header */}
@@ -455,32 +359,12 @@ export default function PengeluaranPage() {
               setEditingId(null);
               setItems([{ produk_id: 0, qty: 1, harga_satuan: 0 }]);
               setHargaDisplay([""]);
-              setForm({
-                akun_id: 0,
-                deskripsi: "",
-                tanggal: "",
-                share_to_klaster: false,
-              });
+              setForm({ akun_id: 0, deskripsi: "", tanggal: "", share_to_klaster: false });
               setReplaceItems(true);
               setShowModal(true);
             }}
           >
             + Tambah Pengeluaran
-          </button>
-          <button
-            className="bg-indigo-600 text-white px-4 py-2 rounded"
-             onClick={() => {
-              setShowProductModal(true);
-              loadKategoriForCreate(); // ⬅️ fetch kategori untuk dropdown
-            }}
-          >
-            + Tambah Kategori/Produk
-          </button>
-          <button
-            className="bg-sky-600 text-white px-4 py-2 rounded"
-            onClick={() => setShowAkunModal(true)}
-          >
-            + Tambah Akun Kas
           </button>
         </div>
       </div>
@@ -488,9 +372,7 @@ export default function PengeluaranPage() {
       {/* Transaksi Terakhir */}
       {transaksiTerakhir && (
         <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-          <h3 className="text-lg font-semibold mb-4 border-b pb-2">
-            Transaksi Terakhir
-          </h3>
+          <h3 className="text-lg font-semibold mb-4 border-b pb-2">Transaksi Terakhir</h3>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div>
               <p className="text-sm text-gray-500">Tanggal</p>
@@ -525,9 +407,7 @@ export default function PengeluaranPage() {
             </div>
             <div>
               <p className="text-sm text-gray-500">Share</p>
-              <p className="font-medium">
-                {isShared(transaksiTerakhir) ? "Klaster" : "Pribadi"}
-              </p>
+              <p className="font-medium">{isShared(transaksiTerakhir) ? "Klaster" : "Pribadi"}</p>
             </div>
           </div>
         </div>
@@ -551,27 +431,18 @@ export default function PengeluaranPage() {
             {pengeluaranFiltered.map((item, i) => (
               <tr key={item.id_laporan} className="border-t">
                 <td className="p-2">{i + 1}</td>
-                <td className="p-2">
-                  Rp {item.kredit?.toLocaleString("id-ID")}
-                </td>
+                <td className="p-2">Rp {item.kredit?.toLocaleString("id-ID")}</td>
                 <td className="p-2">{item.deskripsi}</td>
-                <td className="p-2">
-                  {new Date(item.tanggal).toLocaleDateString("id-ID")}
-                </td>
+                <td className="p-2">{new Date(item.tanggal).toLocaleDateString("id-ID")}</td>
                 <td className="p-2">{isShared(item) ? "Klaster" : "Pribadi"}</td>
                 <td className="p-2">
                   <div className="flex gap-2">
-                    <button
-                      className="px-2 py-1 rounded bg-amber-500 text-white"
-                      onClick={() => onEdit(item)}
-                    >
+                    <button className="px-2 py-1 rounded bg-amber-500 text-white" onClick={() => onEdit(item)}>
                       Edit
                     </button>
                     <button
                       className={`px-2 py-1 rounded bg-rose-600 text-white ${
-                        deletingId === item.id_laporan
-                          ? "opacity-60 cursor-not-allowed"
-                          : ""
+                        deletingId === item.id_laporan ? "opacity-60 cursor-not-allowed" : ""
                       }`}
                       onClick={() => onDelete(item)}
                       disabled={deletingId === item.id_laporan}
@@ -593,289 +464,11 @@ export default function PengeluaranPage() {
         </table>
       </div>
 
-      {/* ====== Kelola Produk & Akun Kas ====== */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-        {/* Produk */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h3 className="text-lg font-semibold mb-4">Kelola Produk</h3>
-          <table className="w-full text-left border">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="p-2">Nama</th>
-                <th className="p-2">Kategori</th>
-                <th className="p-2">Share</th>
-                <th className="p-2">Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((p) => (
-                <tr key={p.produk_id} className="border-t">
-                  <td className="p-2">{p.nama}</td>
-                  <td className="p-2">{p.kategori_nama || "-"}</td>
-                  <td className="p-2">{isShared(p) ? "Klaster" : "Pribadi"}</td>
-                  <td className="p-2">
-                    <div className="flex gap-2">
-                      <button
-                        className="px-2 py-1 rounded bg-amber-500 text-white"
-                        onClick={async () => {
-                          await loadKategoriScopeForEdit();
-                          setProductEditId(p.produk_id);
-                          setProductEditForm({
-                            nama: p.nama || "",
-                            kategori_id: 0, // user pilih dari dropdown
-                            share_to_klaster: Boolean(
-                              p.share_to_klaster ?? p.share_klaster ?? p.klaster_id
-                            ),
-                          });
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="px-2 py-1 rounded bg-rose-600 text-white"
-                        onClick={async () => {
-                          if (!window.confirm(`Hapus produk "${p.nama}"?`)) return;
-                          try {
-                            await deleteProduct(p.produk_id);
-                            await loadProducts();
-                          } catch (e) {
-                            alert(e?.response?.data?.message || "Gagal hapus produk");
-                          }
-                        }}
-                      >
-                        Hapus
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {products.length === 0 && (
-                <tr>
-                  <td className="p-3 text-center text-gray-500" colSpan={4}>
-                    Tidak ada produk.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-
-          {/* Inline editor produk */}
-          {productEditId != null && (
-            <div className="mt-3 border rounded p-3 bg-gray-50">
-              <div className="font-semibold mb-2">Edit Produk</div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <input
-                  type="text"
-                  className="border rounded px-2 py-1"
-                  placeholder="Nama produk"
-                  value={productEditForm.nama}
-                  onChange={(e) =>
-                    setProductEditForm({ ...productEditForm, nama: e.target.value })
-                  }
-                />
-                <select
-                  className="border rounded px-2 py-1"
-                  value={productEditForm.kategori_id}
-                  onChange={(e) =>
-                    setProductEditForm({
-                      ...productEditForm,
-                      kategori_id: Number(e.target.value),
-                    })
-                  }
-                >
-                  <option value={0}>Pilih kategori (pengeluaran)</option>
-                  {kategoriOpsi.map((k) => (
-                    <option key={k.kategori_id} value={k.kategori_id}>
-                      {k.nama} — {k.jenis}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <label className="mt-2 inline-flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={productEditForm.share_to_klaster}
-                  onChange={(e) =>
-                    setProductEditForm({
-                      ...productEditForm,
-                      share_to_klaster: e.target.checked,
-                    })
-                  }
-                />
-                Bagikan ke klaster
-              </label>
-              <div className="flex gap-2 mt-3">
-                <button
-                  className="px-3 py-1 rounded bg-gray-200"
-                  onClick={() => setProductEditId(null)}
-                >
-                  Batal
-                </button>
-                <button
-                  className="px-3 py-1 rounded bg-emerald-600 text-white"
-                  onClick={async () => {
-                    try {
-                      const picked = kategoriOpsi.find(
-                        (k) => Number(k.kategori_id) === Number(productEditForm.kategori_id)
-                      );
-                      await updateProduct(productEditId, {
-                        nama: productEditForm.nama,
-                        // BE kita terima 'kategori_nama'; ambil dari dropdown
-                        ...(picked ? { kategori_nama: picked.nama } : {}),
-                        share_klaster: !!productEditForm.share_to_klaster,
-                      });
-                      setProductEditId(null);
-                      await loadProducts();
-                    } catch (e) {
-                      alert(e?.response?.data?.message || "Gagal update produk");
-                    }
-                  }}
-                >
-                  Simpan
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Akun Kas */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h3 className="text-lg font-semibold mb-4">Kelola Akun Kas</h3>
-          <table className="w-full text-left border">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="p-2">Nama</th>
-                <th className="p-2">Deskripsi</th>
-                <th className="p-2">Share</th>
-                <th className="p-2">Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {akunKas.map((a) => (
-                <tr key={a.akun_id} className="border-t">
-                  <td className="p-2">{a.nama}</td>
-                  <td className="p-2">{a.deskripsi || "-"}</td>
-                  <td className="p-2">{isShared(a) ? "Klaster" : "Pribadi"}</td>
-                  <td className="p-2">
-                    <div className="flex gap-2">
-                      <button
-                        className="px-2 py-1 rounded bg-amber-500 text-white"
-                        onClick={() => {
-                          setAkunEditId(a.akun_id);
-                          setAkunEditForm({
-                            nama: a.nama || "",
-                            deskripsi: a.deskripsi || "",
-                            share_to_klaster: Boolean(
-                              a.share_to_klaster ?? a.share_klaster ?? a.klaster_id
-                            ),
-                          });
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="px-2 py-1 rounded bg-rose-600 text-white"
-                        onClick={async () => {
-                          if (!window.confirm(`Hapus akun kas "${a.nama}"?`)) return;
-                          try {
-                            await deleteAkunKas(a.akun_id);
-                            await loadAkunKas();
-                          } catch (e) {
-                            alert(e?.response?.data?.message || "Gagal hapus akun kas");
-                          }
-                        }}
-                      >
-                        Hapus
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {akunKas.length === 0 && (
-                <tr>
-                  <td className="p-3 text-center text-gray-500" colSpan={4}>
-                    Tidak ada akun kas.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-
-          {/* Inline editor akun */}
-          {akunEditId != null && (
-            <div className="mt-3 border rounded p-3 bg-gray-50">
-              <div className="font-semibold mb-2">Edit Akun Kas</div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <input
-                  type="text"
-                  className="border rounded px-2 py-1"
-                  placeholder="Nama akun"
-                  value={akunEditForm.nama}
-                  onChange={(e) =>
-                    setAkunEditForm({ ...akunEditForm, nama: e.target.value })
-                  }
-                />
-                <input
-                  type="text"
-                  className="border rounded px-2 py-1"
-                  placeholder="Deskripsi"
-                  value={akunEditForm.deskripsi}
-                  onChange={(e) =>
-                    setAkunEditForm({ ...akunEditForm, deskripsi: e.target.value })
-                  }
-                />
-              </div>
-              <label className="mt-2 inline-flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={akunEditForm.share_to_klaster}
-                  onChange={(e) =>
-                    setAkunEditForm({
-                      ...akunEditForm,
-                      share_to_klaster: e.target.checked,
-                    })
-                  }
-                />
-                Bagikan ke klaster
-              </label>
-              <div className="flex gap-2 mt-3">
-                <button
-                  className="px-3 py-1 rounded bg-gray-200"
-                  onClick={() => setAkunEditId(null)}
-                >
-                  Batal
-                </button>
-                <button
-                  className="px-3 py-1 rounded bg-emerald-600 text-white"
-                  onClick={async () => {
-                    try {
-                      await updateAkunKas(akunEditId, {
-                        nama: akunEditForm.nama,
-                        deskripsi: akunEditForm.deskripsi,
-                        share_klaster: !!akunEditForm.share_to_klaster,
-                      });
-                      setAkunEditId(null);
-                      await loadAkunKas();
-                    } catch (e) {
-                      alert(e?.response?.data?.message || "Gagal update akun kas");
-                    }
-                  }}
-                >
-                  Simpan
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Modal Tambah/Edit Pengeluaran (MULTI ITEM) */}
+      {/* Modal Tambah/Edit Pengeluaran */}
       {showModal && (
         <div className="modal-overlay">
           <div className="modal-box max-w-3xl">
-            <h3 className="text-xl font-bold mb-4">
-              {editingId ? "Edit Pengeluaran" : "Tambah Pengeluaran"}
-            </h3>
+            <h3 className="text-xl font-bold mb-4">{editingId ? "Edit Pengeluaran" : "Tambah Pengeluaran"}</h3>
 
             {editingId && (
               <div className="flex items-center gap-2 text-xs mb-3">
@@ -897,19 +490,14 @@ export default function PengeluaranPage() {
               {/* Akun Kas */}
               <select
                 value={form.akun_id}
-                onChange={(e) =>
-                  setForm({ ...form, akun_id: Number(e.target.value) })
-                }
+                onChange={(e) => setForm({ ...form, akun_id: Number(e.target.value) })}
                 className="block w-full border rounded"
                 required
               >
                 <option value={0}>Pilih Akun Kas</option>
                 {akunKas.map((a) => (
                   <option key={a.akun_id} value={a.akun_id}>
-                    {a.nama}{" "}
-                    {typeof a.saldo_akhir === "number"
-                      ? `— Rp ${a.saldo_akhir.toLocaleString("id-ID")}`
-                      : ""}
+                    {a.nama} {typeof a.saldo_akhir === "number" ? `— Rp ${a.saldo_akhir.toLocaleString("id-ID")}` : ""}
                   </option>
                 ))}
               </select>
@@ -918,11 +506,7 @@ export default function PengeluaranPage() {
               <div className="border rounded p-3">
                 <div className="flex justify-between items-center mb-2">
                   <div className="font-semibold">Item Produk</div>
-                  <button
-                    type="button"
-                    className="px-2 py-1 rounded bg-emerald-600 text-white"
-                    onClick={addRow}
-                  >
+                  <button type="button" className="px-2 py-1 rounded bg-emerald-600 text-white" onClick={addRow}>
                     + Tambah Baris
                   </button>
                 </div>
@@ -934,10 +518,7 @@ export default function PengeluaranPage() {
                 </div>
 
                 {items.map((r, idx) => (
-                  <div
-                    key={idx}
-                    className="grid grid-cols-12 gap-2 items-center mb-2"
-                  >
+                  <div key={idx} className="grid grid-cols-12 gap-2 items-center mb-2">
                     <div className="col-span-5">
                       <select
                         className="w-full border rounded"
@@ -978,11 +559,7 @@ export default function PengeluaranPage() {
 
                     <div className="col-span-12">
                       {items.length > 1 && (
-                        <button
-                          type="button"
-                          className="text-red-600 text-xs underline"
-                          onClick={() => removeRow(idx)}
-                        >
+                        <button type="button" className="text-red-600 text-xs underline" onClick={() => removeRow(idx)}>
                           Hapus baris
                         </button>
                       )}
@@ -991,14 +568,12 @@ export default function PengeluaranPage() {
                 ))}
               </div>
 
-              {/* Share ke klaster */}
+              {/* Share */}
               <label className="inline-flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={form.share_to_klaster}
-                  onChange={(e) =>
-                    setForm({ ...form, share_to_klaster: e.target.checked })
-                  }
+                  onChange={(e) => setForm({ ...form, share_to_klaster: e.target.checked })}
                 />
                 Bagikan ke klaster
               </label>
@@ -1024,9 +599,7 @@ export default function PengeluaranPage() {
               <textarea
                 placeholder="Deskripsi pengeluaran..."
                 value={form.deskripsi}
-                onChange={(e) =>
-                  setForm({ ...form, deskripsi: e.target.value })
-                }
+                onChange={(e) => setForm({ ...form, deskripsi: e.target.value })}
               />
 
               <input
@@ -1052,178 +625,6 @@ export default function PengeluaranPage() {
                 </button>
                 <button type="submit" className="btn-simpan">
                   {editingId ? "Simpan Perubahan" : "Simpan"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Tambah Kategori/Produk */}
-      {showProductModal && (
-        <div className="modal-overlay">
-          <div className="modal-box">
-            <h3 className="text-xl font-bold mb-4">Tambah Kategori / Produk</h3>
-
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                try {
-                  await createProduct({
-                    nama: productForm.nama,
-                    // kirim kategori_id hasil dropdown (optional)
-                    ...(createCatId ? { kategori_id: Number(createCatId) } : {}),
-                    share_klaster: !!productForm.share_to_klaster,
-                  });
-                  setProductForm({ nama: "", kategori_nama: "", share_to_klaster: false });
-                  setCreateCatId("");
-                  setShowProductModal(false);
-                  await loadProducts();
-                } catch (err) {
-                  console.error("Gagal tambah produk/kategori:", err);
-                  alert(err?.response?.data?.message || "Gagal menambah kategori/produk");
-                }
-              }}
-              className="flex flex-col gap-3"
-            >
-              <div className="font-bold">Nama Produk</div>
-              <input
-                type="text"
-                value={productForm.nama}
-                onChange={(e) => setProductForm({ ...productForm, nama: e.target.value })}
-                required
-              />
-
-              <div className="font-bold">Kategori (opsional)</div>
-              <select
-                className="border rounded px-2 py-1"
-                value={createCatId}
-                onChange={(e) => setCreateCatId(e.target.value)}
-                disabled={createCatLoading}
-              >
-                <option value="">
-                  {createCatLoading ? "Memuat kategori…" : "— Pilih kategori —"}
-                </option>
-                {createCatOpts.map((k) => (
-                  <option key={k.kategori_id} value={k.kategori_id}>
-                    {k.nama}
-                    {k.jenis ? ` — ${k.jenis}` : ""}
-                    {k.sub_kelompok ? ` / ${k.sub_kelompok}` : ""}
-                  </option>
-                ))}
-              </select>
-
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={productForm.share_to_klaster}
-                  onChange={(e) => setProductForm({ ...productForm, share_to_klaster: e.target.checked })}
-                />
-                Bagikan ke klaster
-              </label>
-
-              <div className="flex justify-end gap-3 mt-3">
-                <button
-                  type="button"
-                  className="btn-cancel"
-                  onClick={() => {
-                    setShowProductModal(false);
-                    setCreateCatId("");
-                  }}
-                >
-                  Batal
-                </button>
-                <button type="submit" className="btn-simpan">
-                  Simpan
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      {/* Modal Tambah Akun Kas */}
-      {showAkunModal && (
-        <div className="modal-overlay">
-          <div className="modal-box">
-            <h3 className="text-xl font-bold mb-4">Tambah Akun Kas</h3>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                try {
-                  await createAkunKas({
-                    nama: akunForm.nama,
-                    deskripsi: akunForm.deskripsi,
-                    saldo_awal: akunForm.saldo_awal,
-                    share_klaster: !!akunForm.share_to_klaster,
-                  });
-                  setAkunForm({
-                    nama: "",
-                    deskripsi: "",
-                    saldo_awal: 0,
-                    share_to_klaster: false,
-                  });
-                  setDisplaySaldo("");
-                  setShowAkunModal(false);
-                  await loadAkunKas();
-                } catch (err) {
-                  console.error("Gagal tambah akun kas:", err);
-                  alert(err?.response?.data?.message || "Gagal menambah akun kas");
-                }
-              }}
-              className="flex flex-col gap-3"
-            >
-              <div className="font-bold">Nama Akun</div>
-              <input
-                type="text"
-                value={akunForm.nama}
-                onChange={(e) =>
-                  setAkunForm({ ...akunForm, nama: e.target.value })
-                }
-                required
-              />
-              <div className="font-bold">Deskripsi</div>
-              <input
-                type="text"
-                value={akunForm.deskripsi}
-                onChange={(e) =>
-                  setAkunForm({ ...akunForm, deskripsi: e.target.value })
-                }
-              />
-              <div className="font-bold">Saldo Awal</div>
-              <input
-                type="text"
-                placeholder="Saldo awal (Rp)"
-                value={displaySaldo}
-                onChange={handleChangeSaldoAwal}
-                onBlur={() => setDisplaySaldo(formatRupiah(akunForm.saldo_awal))}
-              />
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={akunForm.share_to_klaster}
-                  onChange={(e) =>
-                    setAkunForm({
-                      ...akunForm,
-                      share_to_klaster: e.target.checked,
-                    })
-                  }
-                />
-                Bagikan ke klaster
-              </label>
-
-              <div className="flex justify-end gap-3 mt-3">
-                <button
-                  type="button"
-                  className="btn-cancel"
-                  onClick={() => {
-                    setShowAkunModal(false);
-                    setDisplaySaldo("");
-                  }}
-                >
-                  Batal
-                </button>
-                <button type="submit" className="btn-simpan">
-                  Simpan
                 </button>
               </div>
             </form>
