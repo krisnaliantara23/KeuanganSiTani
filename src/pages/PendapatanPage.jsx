@@ -1,53 +1,50 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { getPendapatan, addPendapatan } from "../services/financeService";
+import { getPendapatan, addPendapatan, updatePendapatan, getLaporanById, deletePendapatan } from "../services/financeService";
 import { getProducts, createProduct } from "../services/productService";
-import {
-  listAkunKas,
-  createAkunKas,
-} from "../services/akunKasService"; // ✅ service akun kas
+import { listAkunKas, createAkunKas } from "../services/akunKasService";
 import "../styles/pendapatan.css";
 
 export default function PendapatanPage() {
+  const token = localStorage.getItem("token");
+
+  // data list
   const [pendapatan, setPendapatan] = useState([]);
-  const [produkList, setProdukList] = useState([]);
-  const [akunList, setAkunList] = useState([]);
-  const [showModal, setShowModal] = useState(false);
-
-  // Produk
-  const [showProductModal, setShowProductModal] = useState(false);
   const [products, setProducts] = useState([]);
-
-  // Akun kas
   const [akunKas, setAkunKas] = useState([]);
+
+  // modal
+  const [showModal, setShowModal] = useState(false);
+  const [showProductModal, setShowProductModal] = useState(false);
   const [showAkunModal, setShowAkunModal] = useState(false);
 
-  // Form transaksi pendapatan
+  // edit state
+  const [editingId, setEditingId] = useState(null);
+  const [replaceItems, setReplaceItems] = useState(true); // default: ganti items saat edit
+  const [copied, setCopied] = useState(false);
+
+  // Delete state
+  const [deletingId, setDeletingId] = useState(null);
+
+  // form transaksi (tanpa jumlah karena dihitung)
   const [form, setForm] = useState({
-    akun_id: 0,      // ✅ akun kas yang dipilih
-    produk_id: 0,
-    jumlah: 0,
+    akun_id: 0,
     deskripsi: "",
     tanggal: "",
   });
 
-  // Display uang untuk input jumlah
-  const [display, setDisplay] = useState("");
+  // items (baris dinamis)
+  const [items, setItems] = useState([
+    { produk_id: 0, qty: 1, harga_satuan: 0 },
+  ]);
+  // tampilan harga per baris (format rupiah saat ketik)
+  const [hargaDisplay, setHargaDisplay] = useState([""]);
 
-  // Form tambah produk/kategori
-  const [productForm, setProductForm] = useState({
-    nama: "",
-    kategori_nama: "",
-  });
+  // form tambah produk/kategori
+  const [productForm, setProductForm] = useState({ nama: "", kategori_nama: "" });
 
-  // Form tambah akun kas
-  const [akunForm, setAkunForm] = useState({
-    nama: "",
-    deskripsi: "",
-    saldo_awal: 0,
-  });
+  // form akun kas
+  const [akunForm, setAkunForm] = useState({ nama: "", deskripsi: "", saldo_awal: 0 });
   const [displaySaldo, setDisplaySaldo] = useState("");
-
-  const token = localStorage.getItem("token");
 
   useEffect(() => {
     loadInitialData(); // ✅ Fixed: changed from loadData() to loadInitialData()
@@ -58,12 +55,12 @@ export default function PendapatanPage() {
   async function loadInitialData() {
     try {
       const data = await getPendapatan(token);
+      console.log("data pendapatan:", data);
       setPendapatan(data);
     } catch (err) {
       console.error("Gagal ambil pendapatan:", err);
     }
   }
-
   async function loadProducts() {
     try {
       const res = await getProducts();
@@ -74,7 +71,6 @@ export default function PendapatanPage() {
       setProducts([]);
     }
   }
-
   async function loadAkunKas(params = { page: 1, limit: 50 }) {
     try {
       const res = await listAkunKas(params);
@@ -86,108 +82,217 @@ export default function PendapatanPage() {
     }
   }
 
-  // --- formatter Rupiah umum ---
-  const formatRupiah = (value) => {
-    if (!value) return "";
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-    }).format(value);
-  };
+  // utils
+  const formatRupiah = (value) =>
+    !value ? "" : new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(value);
 
-  // jumlah (pendapatan)
-  const handleChangeJumlah = (e) => {
+  // subtotal & total
+  const subtot = (row) => Number(row.qty || 0) * Number(row.harga_satuan || 0);
+  const total = useMemo(() => items.reduce((s, r) => s + subtot(r), 0), [items]);
+
+  // handler baris items
+  const addRow = () => {
+    setItems((arr) => [...arr, { produk_id: 0, qty: 1, harga_satuan: 0 }]);
+    setHargaDisplay((d) => [...d, ""]);
+  };
+  const removeRow = (idx) => {
+    setItems((arr) => arr.filter((_, i) => i !== idx));
+    setHargaDisplay((d) => d.filter((_, i) => i !== idx));
+  };
+  const updateRow = (idx, patch) => {
+    setItems((arr) => arr.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  };
+  const onQtyChange = (idx, val) => {
+    const qty = Math.max(0, Number(val || 0));
+    updateRow(idx, { qty });
+  };
+  const onProdukChange = (idx, val) => {
+    updateRow(idx, { produk_id: Number(val || 0) });
+  };
+  const onHargaChange = (idx, e) => {
     const raw = e.target.value.replace(/\D/g, "");
-    const num = Number(raw);
-    setForm({ ...form, jumlah: num });
-    setDisplay(raw ? formatRupiah(num) : "");
+    const num = Number(raw || 0);
+    updateRow(idx, { harga_satuan: num });
+    setHargaDisplay((d) => d.map((s, i) => (i === idx ? (raw ? formatRupiah(num) : "") : s)));
+  };
+  const onHargaBlur = (idx) => {
+    setHargaDisplay((d) => d.map((s, i) => (i === idx ? formatRupiah(items[idx].harga_satuan) : s)));
   };
 
-  // saldo awal (akun kas)
+  // akun kas saldo awal (modal akun kas)
   const handleChangeSaldoAwal = (e) => {
     const raw = e.target.value.replace(/\D/g, "");
     const num = Number(raw);
     setAkunForm({ ...akunForm, saldo_awal: num });
     setDisplaySaldo(raw ? formatRupiah(num) : "");
   };
+  // Handle Delete
+  const onDelete = async (row) => {
+  const pretty = new Intl.NumberFormat("id-ID").format(row.debit || 0);
+  if (!window.confirm(`Hapus laporan ini?\nJumlah: Rp ${pretty}\nTanggal: ${new Date(row.tanggal).toLocaleDateString("id-ID")}`)) {
+    return;
+  }
+  try {
+    setDeletingId(row.id_laporan);
+    await deletePendapatan(token, row.id_laporan);
+    // opsional: optimistik
+    // setPendapatan((prev) => prev.filter(x => x.id_laporan !== row.id_laporan));
+    await loadData(); // aman: refresh dari server
+  } catch (err) {
+    console.error("Gagal hapus pendapatan:", err);
+    alert(err?.response?.data?.message || "Gagal menghapus pendapatan");
+  } finally {
+    setDeletingId(null);
+  }
+};
 
-  // Submit tambah pendapatan (WAJIB pilih akun kas & produk)
-  async function handleSubmit(e) {
+
+  // submit create/update
+  async function submitLaporan(e) {
     e.preventDefault();
 
-    if (!form.akun_id) {
-      alert("Pilih Akun Kas terlebih dahulu.");
-      return;
-    }
-    if (!form.produk_id) {
-      alert("Pilih Produk terlebih dahulu.");
-      return;
-    }
-    if (!form.jumlah || form.jumlah <= 0) {
-      alert("Jumlah harus lebih dari 0.");
-      return;
+    if (!form.akun_id) return alert("Pilih Akun Kas dulu.");
+    if (!form.tanggal) return alert("Isi tanggal dulu.");
+    if (items.length === 0) return alert("Tambahkan minimal 1 produk.");
+    for (const r of items) {
+      if (!r.produk_id) return alert("Ada baris tanpa produk yang dipilih.");
+      if (!r.qty || r.qty <= 0) return alert("Qty setiap baris harus > 0.");
+      if (!r.harga_satuan || r.harga_satuan <= 0) return alert("Harga satuan setiap baris harus > 0.");
     }
 
+    const payload = {
+      akun_id: form.akun_id,
+      deskripsi: form.deskripsi,
+      tanggal: form.tanggal,
+      jumlah: total,            // supaya kompatibel dgn service lama
+      items: items.map((r) => ({
+        produk_id: r.produk_id,
+        jumlah: Number(r.qty),
+        harga_satuan: Number(r.harga_satuan),
+        subtotal: subtot(r),
+      })),
+    };
+
     try {
-      await addPendapatan(token, {
-        akun_id: form.akun_id,       // ✅ kirim akun_id
-        produk_id: form.produk_id,
-        jumlah: form.jumlah,
-        deskripsi: form.deskripsi,
-        tanggal: form.tanggal,
-      });
-      setForm({ akun_id: 0, produk_id: 0, jumlah: 0, deskripsi: "", tanggal: "" });
-      setDisplay("");
+      if (editingId) {
+        // sesuai dok PATCH → kirim items untuk mengganti detail
+        await updatePendapatan(token, editingId, {
+          jenis: "pemasukan",
+          debit: total,
+          kredit: 0,
+          akun_id: form.akun_id,
+          deskripsi: form.deskripsi,
+          tanggal: form.tanggal,
+          ...(replaceItems ? { items: payload.items } : {}), // kalau tidak replace, omit items
+        });
+      } else {
+        // pastikan service POST meneruskan 'items' ke body
+        await addPendapatan(token, {
+          jenis: "pemasukan",
+          debit: total,
+          kredit: 0,
+          akun_id: form.akun_id,
+          deskripsi: form.deskripsi,
+          tanggal: form.tanggal,
+          items: payload.items,
+        });
+        console.log("payload items:", payload.items);
+      }
+
+      // reset
+      setForm({ akun_id: 0, deskripsi: "", tanggal: "" });
+      setItems([{ produk_id: 0, qty: 1, harga_satuan: 0 }]);
+      setHargaDisplay([""]);
+      setEditingId(null);
+      setReplaceItems(true);
       setShowModal(false);
       loadInitialData();
     } catch (err) {
-      console.error("Gagal tambah pendapatan:", err);
-      alert(err?.response?.data?.message || "Gagal menambah pendapatan");
+      console.error("Gagal simpan pendapatan:", err);
+      alert(err?.response?.data?.message || "Gagal menyimpan pendapatan");
     }
   }
 
-  // Submit tambah produk/kategori
-  async function handleSubmitProduct(e) {
-    e.preventDefault();
-    try {
-      await createProduct(productForm);
-      setProductForm({ nama: "", kategori_nama: "" });
-      setShowProductModal(false);
-      await loadProducts();
-    } catch (err) {
-      console.error("Gagal tambah produk/kategori:", err);
-      alert(err?.response?.data?.message || "Gagal menambah kategori/produk");
-    }
-  }
+  // edit row (kalau API list belum mengembalikan items, user bisa replace items baru)
+  const onEdit = async (row) => {
+    setEditingId(row.id_laporan);
+    setShowModal(true); // buka dulu biar terasa responsif
 
-  // Submit tambah akun kas
-  async function handleSubmitAkun(e) {
-    e.preventDefault();
     try {
-      await createAkunKas({
-        nama: akunForm.nama,
-        deskripsi: akunForm.deskripsi,
-        saldo_awal: akunForm.saldo_awal,
-        // saldo_akhir opsional; biarkan BE yang set = saldo_awal saat create
+      const res = await getLaporanById(token, row.id_laporan);
+      const d = res.data?.data || res.data || {};
+
+      // isi form utama
+      setForm({
+        akun_id: Number(d.akun_id ?? row.akun_id) || 0,
+        deskripsi: d.deskripsi ?? row.deskripsi ?? "",
+        tanggal: (d.tanggal ?? row.tanggal ?? "").slice(0, 10),
       });
-      setAkunForm({ nama: "", deskripsi: "", saldo_awal: 0 });
-      setDisplaySaldo("");
-      setShowAkunModal(false);
-      await loadAkunKas();
-    } catch (err) {
-      console.error("Gagal tambah akun kas:", err);
-      alert(err?.response?.data?.message || "Gagal menambah akun kas");
-    }
-  }
 
+      // --- penting: map details -> items di state ---
+      const det = Array.isArray(d.details) ? d.details : [];
+      const its = det.map((it) => {
+        const qty = Number(it.jumlah ?? 1);
+        const unit = it.harga_satuan != null
+          ? Number(it.harga_satuan)
+          : Math.round(Number(it.subtotal ?? 0) / (qty || 1));
+        return {
+          produk_id: Number(it.produk_id ?? it.produk?.produk_id ?? 0),
+          qty,
+          harga_satuan: unit,
+        };
+      });
+
+      if (its.length) {
+        setItems(its);
+        setHargaDisplay(its.map((x) => (x.harga_satuan ? formatRupiah(x.harga_satuan) : "")));
+        setReplaceItems(false); // karena kita sudah muat items lama
+      } else {
+        // fallback kalau endpoint tidak mengembalikan details
+        setItems([{ produk_id: 0, qty: 1, harga_satuan: 0 }]);
+        setHargaDisplay([""]);
+        setReplaceItems(true);
+      }
+    } catch (e) {
+      console.error("Gagal ambil detail laporan:", e);
+      // fallback minimal
+      setForm({
+        akun_id: Number(row.akun_id) || 0,
+        deskripsi: row.deskripsi || "",
+        tanggal: (row.tanggal || "").slice(0, 10),
+      });
+      setItems([{ produk_id: 0, qty: 1, harga_satuan: 0 }]);
+      setHargaDisplay([""]);
+      setReplaceItems(true);
+    }
+  };
+
+  // Copy ID
+  const copyId = async () => {
+  try {
+    await navigator.clipboard.writeText(editingId);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  } catch {}
+};
+
+  //  Untuk data transaksi terakhir
   const transaksiTerakhir = useMemo(() => {
     if (pendapatan.length === 0) return null;
-    const sorted = [...pendapatan].sort(
-      (a, b) => new Date(b.created_at) - new Date(a.created_at)
-    );
+    const sorted = [...pendapatan].sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
     return sorted[0];
   }, [pendapatan]);
+  // Untuk data akun kas terakhir (berdasarkan transaksi terakhir)
+  const akunTerakhir = useMemo(() => {
+  if (!transaksiTerakhir) return null;
+  const acc = akunKas.find(a => a.akun_id === transaksiTerakhir.akun_id);
+  return {
+    id: transaksiTerakhir.akun_id,
+    nama: transaksiTerakhir.akun_nama || acc?.nama || null,
+    saldo: acc?.saldo_akhir,
+  };
+}, [transaksiTerakhir, akunKas]);
+
 
   return (
     <>
@@ -195,22 +300,13 @@ export default function PendapatanPage() {
       <div className="bg-white rounded-xl shadow-md p-6 mb-6 flex flex-wrap gap-3 justify-between items-center">
         <h2 className="text-2xl font-bold">Pendapatan Pertanian</h2>
         <div className="flex gap-2">
-          <button
-            className="bg-green-600 text-white px-4 py-2 rounded"
-            onClick={() => setShowModal(true)}
-          >
+          <button className="bg-green-600 text-white px-4 py-2 rounded" onClick={() => { setEditingId(null); setShowModal(true); }}>
             + Tambah Pendapatan
           </button>
-          <button
-            className="bg-indigo-600 text-white px-4 py-2 rounded"
-            onClick={() => setShowProductModal(true)}
-          >
+          <button className="bg-indigo-600 text-white px-4 py-2 rounded" onClick={() => setShowProductModal(true)}>
             + Tambah Kategori/Produk
           </button>
-          <button
-            className="bg-sky-600 text-white px-4 py-2 rounded"
-            onClick={() => setShowAkunModal(true)}
-          >
+          <button className="bg-sky-600 text-white px-4 py-2 rounded" onClick={() => setShowAkunModal(true)}>
             + Tambah Akun Kas
           </button>
         </div>
@@ -219,34 +315,24 @@ export default function PendapatanPage() {
       {/* Transaksi Terakhir */}
       {transaksiTerakhir && (
         <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-          <h3 className="text-lg font-semibold mb-4 border-b pb-2">
-            Transaksi Terakhir
-          </h3>
+          <h3 className="text-lg font-semibold mb-4 border-b pb-2">Transaksi Terakhir</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <p className="text-sm text-gray-500">Tanggal</p>
-              <p className="font-medium">
-                {new Date(transaksiTerakhir.tanggal).toLocaleDateString("id-ID")}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Jumlah</p>
-              <p className="font-medium text-green-600">
-                Rp {transaksiTerakhir.debit?.toLocaleString("id-ID")}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Kategori</p>
-              <p className="font-medium">
-                {transaksiTerakhir.kategori_nama || transaksiTerakhir.kategori_id}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Deskripsi</p>
-              <p className="font-medium">
-                {transaksiTerakhir.deskripsi || "-"}
-              </p>
-            </div>
+            <div><p className="text-sm text-gray-500">Tanggal</p><p className="font-medium">{new Date(transaksiTerakhir.tanggal).toLocaleDateString("id-ID")}</p></div>
+            <div><p className="text-sm text-gray-500">Jumlah</p><p className="font-medium text-green-600">Rp {transaksiTerakhir.debit?.toLocaleString("id-ID")}</p></div>
+            <div><p className="text-sm text-gray-500">Akun yang Digunakan</p><p className="font-medium">
+            {akunTerakhir?.nama
+              ? akunTerakhir.nama
+              : akunTerakhir?.id
+              ? `Akun #${akunTerakhir.id}`
+              : "-"}
+          </p>
+          {akunTerakhir?.saldo != null && (
+            <p className="text-xs text-gray-500">
+              Saldo: Rp {akunTerakhir.saldo.toLocaleString("id-ID")}
+            </p>
+          )}
+          </div>
+            <div><p className="text-sm text-gray-500">Deskripsi</p><p className="font-medium">{transaksiTerakhir.deskripsi || "-"}</p></div>
           </div>
         </div>
       )}
@@ -257,22 +343,32 @@ export default function PendapatanPage() {
         <table className="w-full text-left border">
           <thead>
             <tr className="bg-gray-100">
-              <th className="p-2">Kategori</th>
+              <th className="p-2">Nomor</th>
               <th className="p-2">Jumlah</th>
               <th className="p-2">Deskripsi</th>
               <th className="p-2">Tanggal</th>
+              <th className="p-2">Aksi</th>
             </tr>
           </thead>
           <tbody>
-            {pendapatan.map((item) => (
+            {pendapatan.map((item, i) => (
               <tr key={item.id_laporan} className="border-t">
-                <td className="p-2">
-                  {item.kategori_nama || item.kategori_id}
-                </td>
+                <td className="p-2">{i + 1}</td>
                 <td className="p-2">Rp {item.debit?.toLocaleString("id-ID")}</td>
                 <td className="p-2">{item.deskripsi}</td>
+                <td className="p-2">{item.tanggal}</td>
                 <td className="p-2">
-                  {new Date(item.tanggal).toLocaleDateString("id-ID")}
+                  <div className="flex gap-2">
+                     <button className="px-2 py-1 rounded bg-amber-500 text-white" onClick={() => onEdit(item)}>Edit</button>
+                    <button
+                      className={`px-2 py-1 rounded bg-rose-600 text-white ${deletingId === item.id_laporan ? "opacity-60 cursor-not-allowed" : ""}`}
+                      onClick={() => onDelete(item)}
+                      disabled={deletingId === item.id_laporan}
+                    >
+                      {deletingId === item.id_laporan ? "Menghapus..." : "Hapus"}
+                    </button>
+                  </div>
+                 
                 </td>
               </tr>
             ))}
@@ -280,53 +376,132 @@ export default function PendapatanPage() {
         </table>
       </div>
 
-      {/* Modal Tambah Pendapatan */}
+      {/* Modal Tambah/Edit Pendapatan dgn MULTI ITEM */}
       {showModal && (
-        <div className="modal-overlay">
+        <div className="modal-overlay w-96">
           <div className="modal-box">
-            <h3 className="text-xl font-bold mb-4">Tambah Pendapatan</h3>
-            <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-              {/* Pilih Akun Kas */}
+            <h3 className="text-xl font-bold mb-4">{editingId ? "Edit Pendapatan" : "Tambah Pendapatan"}</h3>
+            {editingId && (
+              <div className="flex items-center gap-2 text-xs mb-3">
+                <span className="px-2 py-1 bg-gray-100 rounded">
+                  ID: <code className="font-mono">{editingId}</code>
+                </span>
+                <button
+                  type="button"
+                  onClick={copyId}
+                  className="px-2 py-1 rounded bg-gray-200 hover:bg-gray-300"
+                  title="Salin ID"
+                >
+                  {copied ? "Tersalin ✓" : "Salin"}
+                </button>
+              </div>
+            )}
+            <form onSubmit={submitLaporan} className="flex flex-col gap-3">
+              {/* Akun Kas */}
               <select
                 value={form.akun_id}
                 onChange={(e) => setForm({ ...form, akun_id: Number(e.target.value) })}
-                size={8}
                 className="block w-full border rounded"
                 required
               >
                 <option value={0}>Pilih Akun Kas</option>
                 {akunKas.map((a) => (
                   <option key={a.akun_id} value={a.akun_id}>
-                    {a.nama} {typeof a.saldo_akhir === "number" ? `— ${a.saldo_akhir.toLocaleString("id-ID")}` : ""}
+                    {a.nama} {typeof a.saldo_akhir === "number" ? `— Rp ${a.saldo_akhir.toLocaleString("id-ID")}` : ""}
                   </option>
                 ))}
               </select>
 
-              {/* Pilih Produk */}
-              <select
-                value={form.produk_id}
-                onChange={(e) => setForm({ ...form, produk_id: Number(e.target.value) })}
-                size={8}
-                className="block w-full border rounded"
-                required
-              >
-                <option value={0}>Pilih produk</option>
-                {products.map((p) => (
-                  <option key={p.produk_id} value={p.produk_id}>
-                    {p.nama}{p.kategori_nama ? ` — ${p.kategori_nama}` : ""}
-                  </option>
-                ))}
-              </select>
+              {/* ITEMS */}
+              <div className="border rounded p-3">
+                <div className="flex justify-between items-center mb-2">
+                  <div className="font-semibold">Item Produk</div>
+                  <button type="button" className="px-2 py-1 rounded bg-emerald-600 text-white" onClick={addRow}>
+                    + Tambah Baris
+                  </button>
+                </div>
 
-              {/* Jumlah */}
-              <input
-                type="text"
-                placeholder="Jumlah (Rp)"
-                value={display}
-                onChange={handleChangeJumlah}
-                onBlur={() => setDisplay(formatRupiah(form.jumlah))}
-                required
-              />
+                <div className="grid grid-cols-12 gap-2 text-sm font-medium mb-1">
+                  <div className="col-span-6">Produk</div>
+                  <div className="col-span-2">Qty</div>
+                  <div className="col-span-3">Harga Satuan (Rp)</div>
+                  {/* <div className="col-span-1 text-right">Subtotal</div> */}
+                </div>
+
+                {items.map((r, idx) => (
+                  <div key={idx} className="grid grid-cols-12 gap-2 items-center mb-2">
+                    <div className="col-span-6">
+                      <select
+                        className="w-full border rounded"
+                        value={r.produk_id}
+                        onChange={(e) => onProdukChange(idx, e.target.value)}
+                        required
+                      >
+                        <option value={0}>Pilih produk</option>
+                        {products.map((p) => (
+                          <option key={p.produk_id} value={p.produk_id}>
+                            {p.nama}{p.kategori_nama ? ` — ${p.kategori_nama}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-span-2">
+                      <input
+                        type="number"
+                        min="1"
+                        className="w-full border rounded px-2 py-1"
+                        value={r.qty}
+                        onChange={(e) => onQtyChange(idx, e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="col-span-3">
+                      <input
+                        type="text"
+                        className="w-full border rounded px-2 py-1"
+                        placeholder="Rp"
+                        value={hargaDisplay[idx] ?? ""}
+                        onChange={(e) => onHargaChange(idx, e)}
+                        onBlur={() => onHargaBlur(idx)}
+                        required
+                      />
+                    </div>
+                    {/* <div className="col-span-1 text-right">
+                      // {formatRupiah(subtot(r))}
+                    </div> */}
+
+                    <div className="col-span-12">
+                      {items.length > 1 && (
+                        <button
+                          type="button"
+                          className="text-red-600 text-xs underline"
+                          onClick={() => removeRow(idx)}
+                        >
+                          Hapus baris
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-between">
+                <div className="text-sm text-gray-600">
+                  {editingId && (
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={replaceItems}
+                        onChange={(e) => setReplaceItems(e.target.checked)}
+                      />
+                      Ganti semua detail (items) saat simpan
+                    </label>
+                  )}
+                </div>
+                <div className="font-semibold">
+                  Total: <span className="text-green-700">{formatRupiah(total)}</span>
+                </div>
+              </div>
 
               <textarea
                 placeholder="Deskripsi pendapatan..."
@@ -345,12 +520,18 @@ export default function PendapatanPage() {
                 <button
                   type="button"
                   className="btn-cancel"
-                  onClick={() => { setShowModal(false); setDisplay(""); }}
+                  onClick={() => {
+                    setShowModal(false);
+                    setEditingId(null);
+                    setReplaceItems(true);
+                    setItems([{ produk_id: 0, qty: 1, harga_satuan: 0 }]);
+                    setHargaDisplay([""]);
+                  }}
                 >
                   Batal
                 </button>
                 <button type="submit" className="btn-simpan">
-                  Simpan
+                  {editingId ? "Simpan Perubahan" : "Simpan"}
                 </button>
               </div>
             </form>
@@ -363,58 +544,30 @@ export default function PendapatanPage() {
         <div className="modal-overlay">
           <div className="modal-box">
             <h3 className="text-xl font-bold mb-4">Tambah Kategori / Produk</h3>
-            <form onSubmit={handleSubmitProduct} className="flex flex-col gap-3">
-              <label className="text-sm text-gray-600">
-                Isi kedua field untuk menambah produk baru dengan kategori. Isi hanya
-                field Kategori untuk menambah kategori baru tanpa produk.
-              </label>
-
-              <div className="font-bold">Nama Produk</div>
-              <input
-                type="text"
-                placeholder='Nama Produk (mis. "Cicilan Traktor", "Kentang")'
-                value={productForm.nama}
-                onChange={(e) => setProductForm({ ...productForm, nama: e.target.value })}
-                required
-              />
-
-              <div className="font-bold">Kategori Produk</div>
-              <input
-                type="text"
-                placeholder='Kategori (mis. "Utang Investasi Alat", "Hasil Panen")'
-                value={productForm.kategori_nama}
-                onChange={(e) =>
-                  setProductForm({ ...productForm, kategori_nama: e.target.value })
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  await createProduct(productForm);
+                  setProductForm({ nama: "", kategori_nama: "" });
+                  setShowProductModal(false);
+                  await loadProducts();
+                } catch (err) {
+                  console.error("Gagal tambah produk/kategori:", err);
+                  alert(err?.response?.data?.message || "Gagal menambah kategori/produk");
                 }
-                required
-              />
-
+              }}
+              className="flex flex-col gap-3"
+            >
+              <div className="font-bold">Nama Produk</div>
+              <input type="text" value={productForm.nama} onChange={(e) => setProductForm({ ...productForm, nama: e.target.value })} required />
+              <div className="font-bold">Kategori Produk</div>
+              <input type="text" value={productForm.kategori_nama} onChange={(e) => setProductForm({ ...productForm, kategori_nama: e.target.value })} required />
               <div className="flex justify-end gap-3 mt-3">
-                <button
-                  type="button"
-                  className="btn-cancel"
-                  onClick={() => setShowProductModal(false)}
-                >
-                  Batal
-                </button>
-                <button type="submit" className="btn-simpan">
-                  Simpan
-                </button>
+                <button type="button" className="btn-cancel" onClick={() => setShowProductModal(false)}>Batal</button>
+                <button type="submit" className="btn-simpan">Simpan</button>
               </div>
             </form>
-
-            {products?.length > 0 && (
-              <div className="mt-4 border-t pt-3">
-                <p className="text-sm text-gray-600 mb-1">Produk/Kategori terbaru:</p>
-                <ul className="list-disc pl-5 max-h-36 overflow-auto">
-                  {products.slice(0, 5).map((p) => (
-                    <li key={p.produk_id}>
-                      {p.nama} {p.kategori_nama ? `— ${p.kategori_nama}` : ""}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -424,61 +577,33 @@ export default function PendapatanPage() {
         <div className="modal-overlay">
           <div className="modal-box">
             <h3 className="text-xl font-bold mb-4">Tambah Akun Kas</h3>
-            <form onSubmit={handleSubmitAkun} className="flex flex-col gap-3">
-              <div className="font-bold">Nama Akun</div>
-              <input
-                type="text"
-                placeholder='Mis. "BRI Operasional", "Kas Besar"'
-                value={akunForm.nama}
-                onChange={(e) => setAkunForm({ ...akunForm, nama: e.target.value })}
-                required
-              />
-
-              <div className="font-bold">Deskripsi</div>
-              <input
-                type="text"
-                placeholder="Catatan singkat (opsional)"
-                value={akunForm.deskripsi}
-                onChange={(e) =>
-                  setAkunForm({ ...akunForm, deskripsi: e.target.value })
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  await createAkunKas({ nama: akunForm.nama, deskripsi: akunForm.deskripsi, saldo_awal: akunForm.saldo_awal });
+                  setAkunForm({ nama: "", deskripsi: "", saldo_awal: 0 });
+                  setDisplaySaldo("");
+                  setShowAkunModal(false);
+                  await loadAkunKas();
+                } catch (err) {
+                  console.error("Gagal tambah akun kas:", err);
+                  alert(err?.response?.data?.message || "Gagal menambah akun kas");
                 }
-              />
-
+              }}
+              className="flex flex-col gap-3"
+            >
+              <div className="font-bold">Nama Akun</div>
+              <input type="text" value={akunForm.nama} onChange={(e) => setAkunForm({ ...akunForm, nama: e.target.value })} required />
+              <div className="font-bold">Deskripsi</div>
+              <input type="text" value={akunForm.deskripsi} onChange={(e) => setAkunForm({ ...akunForm, deskripsi: e.target.value })} />
               <div className="font-bold">Saldo Awal</div>
-              <input
-                type="text"
-                placeholder="Saldo awal (Rp)"
-                value={displaySaldo}
-                onChange={handleChangeSaldoAwal}
-                onBlur={() => setDisplaySaldo(formatRupiah(akunForm.saldo_awal))}
-              />
-
+              <input type="text" placeholder="Saldo awal (Rp)" value={displaySaldo} onChange={handleChangeSaldoAwal} onBlur={() => setDisplaySaldo(formatRupiah(akunForm.saldo_awal))} />
               <div className="flex justify-end gap-3 mt-3">
-                <button
-                  type="button"
-                  className="btn-cancel"
-                  onClick={() => { setShowAkunModal(false); setDisplaySaldo(""); }}
-                >
-                  Batal
-                </button>
-                <button type="submit" className="btn-simpan">
-                  Simpan
-                </button>
+                <button type="button" className="btn-cancel" onClick={() => { setShowAkunModal(false); setDisplaySaldo(""); }}>Batal</button>
+                <button type="submit" className="btn-simpan">Simpan</button>
               </div>
             </form>
-
-            {akunKas?.length > 0 && (
-              <div className="mt-4 border-t pt-3">
-                <p className="text-sm text-gray-600 mb-1">Akun Kas terbaru:</p>
-                <ul className="list-disc pl-5 max-h-36 overflow-auto">
-                  {akunKas.slice(0, 5).map((a) => (
-                    <li key={a.akun_id}>
-                      {a.nama} {typeof a.saldo_akhir === "number" ? `— Rp ${a.saldo_akhir.toLocaleString("id-ID")}` : ""}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
         </div>
       )}
