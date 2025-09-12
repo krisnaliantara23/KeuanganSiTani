@@ -27,6 +27,7 @@ export default function Sidebar() {
     { path: "/laporan", label: "Laporan", icon: FileText },
     { path: "/panduan", label: "Panduan", icon: Book },
     { path: "/pengaturan", label: "Pengaturan", icon: Settings },
+    { path: "/atur-produk", label: "Atur Produk", icon: Settings} // New Menu Item
   ];
 
   const baseLinkClass = "flex items-center w-full p-3 rounded-lg text-gray-700 hover:bg-green-100 hover:text-green-800 transition-colors duration-200";

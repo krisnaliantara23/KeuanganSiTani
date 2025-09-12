@@ -13,8 +13,14 @@ const auth = () => ({
 });
 
 // --- Pendapatan ---
-export async function getPendapatan(token) {
-  const res = await axios.get(`${API_URL}/laporan?jenis=pemasukan`, getAuthHeader(token));
+export async function getPendapatan(token, params = {}) {
+  const res = await axios.get(
+    `${API_URL}/laporan`, 
+    {
+      ...getAuthHeader(token),
+      params: { ...params ,jenis: "pemasukan" }, 
+    }
+  );
   return res.data.data;
 }
 
@@ -64,8 +70,8 @@ export async function addPengeluaranv1(token, data) {
 }
 
 // --- Laporan ---
-export async function getLaporan(token) {
-  const res = await axios.get(`${API_URL}/laporan`, getAuthHeader(token));
+export async function getLaporan(token, params) {
+  const res = await axios.get(`${API_URL}/laporan`, getAuthHeader(token), params);
   return res.data.data;
 }
 
