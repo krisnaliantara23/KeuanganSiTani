@@ -1,15 +1,18 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useId, useState } from "react";
 import { getPendapatan, getPengeluaran } from "../services/financeService";
 import { listAkunKas, getArusKasByAkun } from "../services/akunKasService";
 import Neraca from "../component/Neraca";
 import ArusKas from "../component/ArusKas";
 import { getNeraca } from "../services/financeService";
+import { getCurrentUser } from "../lib/auth";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 export default function LaporanPage() {
   const [activeTab, setActiveTab] = useState("labaRugi");
-
+  // user identifier
+  const me = getCurrentUser() || {};
+  const userId = me.user_id || null;
   // Laba Rugi
   const [pendapatan, setPendapatan] = useState([]);
   const [pengeluaran, setPengeluaran] = useState([]);
@@ -66,7 +69,7 @@ export default function LaporanPage() {
  async function loadNeraca() {
   try {
     setNeracaLoading(true);
-    const res = await getNeraca(token, {
+    const res = await getNeraca(token, userId, {
       start: neracaStart || undefined,
       end: neracaEnd || undefined,
     });

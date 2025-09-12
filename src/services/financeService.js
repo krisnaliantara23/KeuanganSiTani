@@ -110,8 +110,8 @@ export const deletePengeluaran = async (token, id) => {
 //   const res = await axios.get(`${API_NERACA}/summary`, getAuthHeader(token));
 //   return res.data.data;
 // }
-export const getNeraca = (token, params = {}) =>
-  axios.get(`${API_NERACA}/summary`, { ...auth(token), params });
+export const getNeraca = (token, id, params = {}) =>
+  axios.get(`${API_NERACA}/summary/${id}`, { ...auth(token), params });
 
 // export const getNeraca = async (token, params) => {
 //   return axios.get(`${API_NERACA}/summary`, getAuthHeader(token), params);
