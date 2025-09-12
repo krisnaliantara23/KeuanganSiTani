@@ -42,7 +42,7 @@ export default function Layout({ children }) {
       <Sidebar />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col md:pl-64">
         {/* Header */}
         <Header onLogout={handleLogout} />
 
