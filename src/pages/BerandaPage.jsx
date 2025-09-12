@@ -1,6 +1,6 @@
 // src/pages/BerandaPage.jsx
-import React, { useMemo } from "react";
-import { useData } from "../context/DataContext";
+import React, { useEffect, useMemo, useState } from "react";
+import { getPendapatan, getPengeluaran } from "../services/financeService";
 import SummaryCard from "../component/SummaryCard";
 import {
   BarChart,
@@ -12,62 +12,69 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { ArrowUpRight, ArrowDownRight, DollarSign, LogOut } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, DollarSign } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function BerandaPage() {
-  const { pendapatan, pengeluaran, loading, error } = useData();
+  const [pendapatan, setPendapatan] = useState([]);
+  const [pengeluaran, setPengeluaran] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  // Ambil user dari localStorage
+  const token = localStorage.getItem("token");
   const user = localStorage.getItem("user");
   const username = user ? JSON.parse(user).username : "Pengguna";
 
-  // Logout function
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/login");
-  };
+  useEffect(() => {
+    async function loadData() {
+      try {
+        setLoading(true);
+        const [dataPendapatan, dataPengeluaran] = await Promise.all([
+          getPendapatan(token),
+          getPengeluaran(token),
+        ]);
+        setPendapatan(Array.isArray(dataPendapatan) ? dataPendapatan : []);
+        setPengeluaran(Array.isArray(dataPengeluaran) ? dataPengeluaran : []);
+        setError(null);
+      } catch (err) {
+        console.error("Gagal memuat data beranda:", err);
+        setError(err.message || "Gagal memuat data");
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, [token]);
 
-  // Hitung ringkasan bulan ini
-  const { totalPendapatanBulanIni, totalPengeluaranBulanIni, saldoAkhir } =
-    useMemo(() => {
-      const now = new Date();
-      const month = now.getMonth();
-      const year = now.getFullYear();
+  const { totalPendapatanBulanIni, totalPengeluaranBulanIni, saldoAkhir } = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
 
-      const totalPendapatan = pendapatan.reduce(
-        (sum, item) => sum + item.jumlah,
-        0
-      );
-      const totalPengeluaran = pengeluaran.reduce(
-        (sum, item) => sum + item.jumlah,
-        0
-      );
+    const filterByCurrentMonth = (item) => {
+      const itemDate = new Date(item.tanggal || item.created_at);
+      return itemDate.getMonth() === currentMonth && itemDate.getFullYear() === currentYear;
+    };
 
-      const totalPendapatanBulanIni = pendapatan
-        .filter((p) => {
-          const tgl = new Date(p.id);
-          return tgl.getMonth() === month && tgl.getFullYear() === year;
-        })
-        .reduce((sum, item) => sum + item.jumlah, 0);
+    const totalPendapatan = pendapatan.reduce((sum, item) => sum + (item.debit || 0), 0);
+    const totalPengeluaran = pengeluaran.reduce((sum, item) => sum + (item.kredit || 0), 0);
 
-      const totalPengeluaranBulanIni = pengeluaran
-        .filter((p) => {
-          const tgl = new Date(p.id);
-          return tgl.getMonth() === month && tgl.getFullYear() === year;
-        })
-        .reduce((sum, item) => sum + item.jumlah, 0);
+    const totalPendapatanBulanIni = pendapatan
+      .filter(filterByCurrentMonth)
+      .reduce((sum, item) => sum + (item.debit || 0), 0);
 
-      return {
-        totalPendapatanBulanIni,
-        totalPengeluaranBulanIni,
-        saldoAkhir: totalPendapatan - totalPengeluaran,
-      };
-    }, [pendapatan, pengeluaran]);
+    const totalPengeluaranBulanIni = pengeluaran
+      .filter(filterByCurrentMonth)
+      .reduce((sum, item) => sum + (item.kredit || 0), 0);
 
-  // Data chart 6 bulan terakhir
+    return {
+      totalPendapatanBulanIni,
+      totalPengeluaranBulanIni,
+      saldoAkhir: totalPendapatan - totalPengeluaran,
+    };
+  }, [pendapatan, pengeluaran]);
+
   const chartData = useMemo(() => {
     const data = [];
     const today = new Date();
@@ -79,30 +86,29 @@ export default function BerandaPage() {
 
       const p = pendapatan
         .filter((item) => {
-          const tgl = new Date(item.id);
+          const tgl = new Date(item.tanggal || item.created_at);
           return tgl.getMonth() === month && tgl.getFullYear() === year;
         })
-        .reduce((sum, item) => sum + item.jumlah, 0);
+        .reduce((sum, item) => sum + (item.debit || 0), 0);
 
       const k = pengeluaran
         .filter((item) => {
-          const tgl = new Date(item.id);
+          const tgl = new Date(item.tanggal || item.created_at);
           return tgl.getMonth() === month && tgl.getFullYear() === year;
         })
-        .reduce((sum, item) => sum + item.jumlah, 0);
+        .reduce((sum, item) => sum + (item.kredit || 0), 0);
 
       data.push({ name: monthName, Pendapatan: p, Pengeluaran: k });
     }
     return data;
   }, [pendapatan, pengeluaran]);
 
-  // Transaksi terakhir
   const recentTransactions = useMemo(() => {
     const all = [
-      ...pendapatan.map((p) => ({ ...p, type: "pendapatan" })),
-      ...pengeluaran.map((e) => ({ ...e, type: "pengeluaran" })),
+      ...pendapatan.map((p) => ({ ...p, type: "pendapatan", jumlah: p.debit, tanggal: p.tanggal || p.created_at })),
+      ...pengeluaran.map((e) => ({ ...e, type: "pengeluaran", jumlah: e.kredit, tanggal: e.tanggal || e.created_at })),
     ];
-    return all.sort((a, b) => new Date(b.id) - new Date(a.id)).slice(0, 5);
+    return all.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal)).slice(0, 5);
   }, [pendapatan, pengeluaran]);
 
   if (loading) {
@@ -119,20 +125,12 @@ export default function BerandaPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header User */}
       <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow">
         <h2 className="text-xl font-semibold">
           Selamat datang, <span className="text-blue-600">{username}</span> 👋
         </h2>
-        {/* <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg shadow"
-        >
-          <LogOut size={18} /> Logout
-        </button> */}
       </div>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <SummaryCard
           title="Pendapatan Bulan Ini"
@@ -154,9 +152,7 @@ export default function BerandaPage() {
         />
       </div>
 
-      {/* Chart & Recent Transactions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Chart */}
         <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
           <h3 className="text-lg font-semibold mb-4">
             Ringkasan 6 Bulan Terakhir
@@ -166,7 +162,7 @@ export default function BerandaPage() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis />
-              <Tooltip formatter={(value) => `Rp ${value.toLocaleString()}`} />
+              <Tooltip formatter={(value) => `Rp ${value.toLocaleString()}`}/>
               <Legend />
               <Bar dataKey="Pendapatan" fill="#16a34a" />
               <Bar dataKey="Pengeluaran" fill="#dc2626" />
@@ -174,20 +170,19 @@ export default function BerandaPage() {
           </ResponsiveContainer>
         </div>
 
-        {/* Recent Transactions */}
         <div className="bg-white p-6 rounded-xl shadow-md">
           <h3 className="text-lg font-semibold mb-4">Transaksi Terakhir</h3>
           <div className="space-y-4">
             {recentTransactions.length > 0 ? (
               recentTransactions.map((item) => (
                 <div
-                  key={item.id}
+                  key={item.id_laporan}
                   className="flex items-center justify-between"
                 >
                   <div>
-                    <p className="font-medium">{item.kategori}</p>
+                    <p className="font-medium">{item.deskripsi || "-"}</p>
                     <p className="text-sm text-gray-500">
-                      {new Date(item.id).toLocaleDateString()}
+                      {new Date(item.tanggal).toLocaleDateString()}
                     </p>
                   </div>
                   <p

@@ -36,7 +36,7 @@ export default function Sidebar() {
     <>
       {/* Hamburger Button for Mobile */}
       <button
-        className="md:hidden fixed top-4 left-4 z-50 bg-green-600 text-white p-2 rounded-lg shadow-lg"
+        className="md:hidden fixed top-10 left-4 z-1000 bg-green-600 text-white p-2 rounded-lg shadow-lg"
         onClick={toggleSidebar}
       >
         {isOpen ? <X size={20} /> : <Menu size={20} />}
