@@ -137,7 +137,8 @@ export default function PendapatanPage() {
     await deletePendapatan(token, row.id_laporan);
     // opsional: optimistik
     // setPendapatan((prev) => prev.filter(x => x.id_laporan !== row.id_laporan));
-    await loadData(); // aman: refresh dari server
+    alert("Berhasil hapus pendapatan.");
+    window.location.reload();
   } catch (err) {
     console.error("Gagal hapus pendapatan:", err);
     alert(err?.response?.data?.message || "Gagal menghapus pendapatan");

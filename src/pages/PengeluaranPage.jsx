@@ -250,7 +250,8 @@ export default function PengeluaranPage() {
     try {
       setDeletingId(row.id_laporan);
       await deletePengeluaran(token, row.id_laporan);
-      await loadData();
+      alert("Berhasil hapus pengeluaran.");
+      window.location.reload();
     } catch (err) {
       console.error("Gagal hapus pengeluaran:", err);
       alert(err?.response?.data?.message || "Gagal menghapus pengeluaran");

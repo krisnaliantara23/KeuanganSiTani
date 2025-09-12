@@ -2,10 +2,15 @@
 import axios from "axios";
 
 const API_URL = "https://be-laporankeuangan.up.railway.app/api/keuangan";
+const API_NERACA = "https://be-laporankeuangan.up.railway.app/api/neraca";
 
 function getAuthHeader(token) {
   return { headers: { Authorization: `Bearer ${token}` } };
 }
+
+const auth = () => ({
+  headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+});
 
 // --- Pendapatan ---
 export async function getPendapatan(token) {
@@ -100,3 +105,14 @@ export const updatePengeluaran = async (token, id, data) => {
 export const deletePengeluaran = async (token, id) => {
   return axios.delete(`${API_URL}/laporan/${id}`, getAuthHeader(token));
 };
+
+// export const getNeraca = async (token) => {
+//   const res = await axios.get(`${API_NERACA}/summary`, getAuthHeader(token));
+//   return res.data.data;
+// }
+export const getNeraca = (token, params = {}) =>
+  axios.get(`${API_NERACA}/summary`, { ...auth(token), params });
+
+// export const getNeraca = async (token, params) => {
+//   return axios.get(`${API_NERACA}/summary`, getAuthHeader(token), params);
+// };
