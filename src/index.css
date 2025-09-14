@@ -1,5 +1,8 @@
 html, body {
-  overflow: auto;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: auto; /* Mengizinkan scroll jika konten lebih besar dari viewport */
 }
 
 html {
