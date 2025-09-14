@@ -1,6 +1,7 @@
 // src/pages/BerandaPage.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { getPendapatan, getPengeluaran } from "../services/financeService";
+import { getProducts } from "../services/productService";
 import SummaryCard from "../component/SummaryCard";
 import {
   BarChart,
@@ -11,16 +12,20 @@ import {
   Legend,
   ResponsiveContainer,
   CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
 import { ArrowUpRight, ArrowDownRight, DollarSign } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#AF19FF", "#FF1919"];
 
 export default function BerandaPage() {
   const [pendapatan, setPendapatan] = useState([]);
   const [pengeluaran, setPengeluaran] = useState([]);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const navigate = useNavigate();
 
   const token = localStorage.getItem("token");
   const user = localStorage.getItem("user");
@@ -30,12 +35,14 @@ export default function BerandaPage() {
     async function loadData() {
       try {
         setLoading(true);
-        const [dataPendapatan, dataPengeluaran] = await Promise.all([
+        const [dataPendapatan, dataPengeluaran, productData] = await Promise.all([
           getPendapatan(token),
           getPengeluaran(token),
+          getProducts(),
         ]);
         setPendapatan(Array.isArray(dataPendapatan) ? dataPendapatan : []);
         setPengeluaran(Array.isArray(dataPengeluaran) ? dataPengeluaran : []);
+        setProducts(Array.isArray(productData.data.data) ? productData.data.data : []);
         setError(null);
       } catch (err) {
         console.error("Gagal memuat data beranda:", err);
@@ -75,10 +82,10 @@ export default function BerandaPage() {
     };
   }, [pendapatan, pengeluaran]);
 
-  const chartData = useMemo(() => {
+  const yearlyChartData = useMemo(() => {
     const data = [];
     const today = new Date();
-    for (let i = 5; i >= 0; i--) {
+    for (let i = 11; i >= 0; i--) {
       const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const month = d.getMonth();
       const year = d.getFullYear();
@@ -98,10 +105,51 @@ export default function BerandaPage() {
         })
         .reduce((sum, item) => sum + (item.kredit || 0), 0);
 
-      data.push({ name: monthName, Pendapatan: p, Pengeluaran: k });
+      data.push({ name: `${monthName} ${year.toString().slice(-2)}`, Pendapatan: p, Pengeluaran: k });
     }
     return data;
   }, [pendapatan, pengeluaran]);
+
+  const expenseCompositionData = useMemo(() => {
+    const categoryTotals = pengeluaran.reduce((acc, item) => {
+      const category = item.kategori?.nama_kategori || "Lain-lain";
+      const amount = item.kredit || 0;
+      if (!acc[category]) {
+        acc[category] = 0;
+      }
+      acc[category] += amount;
+      return acc;
+    }, {});
+
+    return Object.keys(categoryTotals).map(category => ({
+      name: category,
+      value: categoryTotals[category],
+    }));
+  }, [pengeluaran]);
+
+  const commodityAnalysisData = useMemo(() => {
+    if (!products.length) return [];
+
+    return products.map(product => {
+      const relatedPendapatan = pendapatan.filter(p => 
+        p.items && p.items.some(item => item.produk_id === product.id_produk)
+      );
+      const relatedPengeluaran = pengeluaran.filter(e => 
+        e.items && e.items.some(item => item.produk_id === product.id_produk)
+      );
+
+      const totalPendapatan = relatedPendapatan.reduce((sum, item) => sum + (item.debit || 0), 0);
+      const totalPengeluaran = relatedPengeluaran.reduce((sum, item) => sum + (item.kredit || 0), 0);
+      const keuntungan = totalPendapatan - totalPengeluaran;
+
+      return {
+        name: product.nama_produk,
+        Pendapatan: totalPendapatan,
+        Pengeluaran: totalPengeluaran,
+        Keuntungan: keuntungan,
+      };
+    });
+  }, [pendapatan, pengeluaran, products]);
 
   const recentTransactions = useMemo(() => {
     const all = [
@@ -155,10 +203,10 @@ export default function BerandaPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
           <h3 className="text-lg font-semibold mb-4">
-            Ringkasan 6 Bulan Terakhir
+            Ringkasan 12 Bulan Terakhir
           </h3>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData}>
+            <BarChart data={yearlyChartData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis />
@@ -201,6 +249,48 @@ export default function BerandaPage() {
               <p className="text-gray-500">Tidak ada transaksi.</p>
             )}
           </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
+          <h3 className="text-lg font-semibold mb-4">Komposisi Pengeluaran</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={expenseCompositionData}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="value"
+                nameKey="name"
+                label={(props) => `${props.name} (${(props.percent * 100).toFixed(0)}%)`}
+              >
+                {expenseCompositionData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(value) => `Rp ${value.toLocaleString()}`}/>
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="lg:col-span-3 bg-white p-6 rounded-xl shadow-md">
+          <h3 className="text-lg font-semibold mb-4">Analisis per Komoditas</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={commodityAnalysisData} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis type="number" />
+              <YAxis type="category" dataKey="name" width={100} />
+              <Tooltip formatter={(value) => `Rp ${value.toLocaleString()}`}/>
+              <Legend />
+              <Bar dataKey="Pendapatan" fill="#16a34a" />
+              <Bar dataKey="Pengeluaran" fill="#dc2626" />
+              <Bar dataKey="Keuntungan" fill="#3b82f6" />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </div>

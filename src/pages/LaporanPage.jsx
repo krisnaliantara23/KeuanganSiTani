@@ -145,73 +145,211 @@ export default function LaporanPage() {
 
   function exportPDF() {
     const doc = new jsPDF();
-    doc.text("Laporan Keuangan Pertanian", 14, 16);
+    const pageHeight = doc.internal.pageSize.height;
+    const pageWidth = doc.internal.pageSize.width;
+    const margin = 14;
+    let finalY = 0;
+
+    // Helper untuk format Rupiah
+    const formatRp = (val) => `Rp ${Number(val || 0).toLocaleString("id-ID")}`;
+
+    // Header Laporan
+    const addHeader = (title) => {
+      doc.setFontSize(18);
+      doc.setFont(undefined, 'bold');
+      doc.text("Laporan Keuangan SiTani", margin, 22);
+      doc.setFontSize(14);
+      doc.setFont(undefined, 'normal');
+      doc.text(title, margin, 30);
+      doc.setFontSize(10);
+      doc.text(`Pengguna: ${me.username || 'N/A'}`, pageWidth - margin, 22, { align: 'right' });
+      doc.text(`Tanggal: ${new Date().toLocaleDateString('id-ID')}`, pageWidth - margin, 30, { align: 'right' });
+      finalY = 40; // Set start Y for content
+    };
+
+    // Footer Laporan
+    const addFooter = () => {
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.text(`Halaman ${i} dari ${pageCount}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+      }
+    };
+
+    // --- LOGIKA PER TAB ---
 
     if (activeTab === "labaRugi") {
-      doc.text("Laporan Laba Rugi", 14, 22);
+      addHeader("Laporan Laba Rugi");
 
-      // Pendapatan
+      // Ringkasan
       autoTable(doc, {
-        head: [["Kategori", "Jumlah", "Deskripsi", "Tanggal"]],
-        body: pendapatan.map((p) => [
-          p.kategori_nama || p.kategori_id || "-",
-          `Rp ${Number(p.debit || 0).toLocaleString("id-ID")}`,
-          p.deskripsi || "-",
-          fmtTanggal(p),
-        ]),
-        startY: 30,
-      });
-
-      // Pengeluaran
-      autoTable(doc, {
-        head: [["Kategori", "Jumlah", "Deskripsi", "Tanggal"]],
-        body: pengeluaran.map((p) => [
-          p.kategori_nama || p.kategori_id || "-",
-          `Rp ${Number(p.kredit || 0).toLocaleString("id-ID")}`,
-          p.deskripsi || "-",
-          fmtTanggal(p),
-        ]),
-        startY: (doc.lastAutoTable?.finalY || 30) + 10,
-      });
-
-      const y = (doc.lastAutoTable?.finalY || 22) + 12;
-      doc.text(`Total Pendapatan: Rp ${totalPendapatan.toLocaleString("id-ID")}`, 14, y);
-      doc.text(`Total Pengeluaran: Rp ${totalPengeluaran.toLocaleString("id-ID")}`, 14, y + 8);
-      doc.text(
-        `Saldo Akhir: Rp ${(totalPendapatan - totalPengeluaran).toLocaleString("id-ID")}`,
-        14,
-        y + 16
-      );
-    } else if (activeTab === "neraca" && neracaData) {
-      doc.text("Laporan Neraca", 14, 22);
-      autoTable(doc, {
-        head: [["Kelompok", "Nama Akun/Produk", "Jumlah"]],
+        startY: finalY,
         body: [
-          ...(neracaData.aset_lancar?.items || []).map((i) => ["Aset Lancar", i.produk_nama, `Rp ${i.saldo.toLocaleString("id-ID")}`]),
-          ...(neracaData.aset_tetap?.items || []).map((i) => ["Aset Tetap", i.produk_nama, `Rp ${i.saldo.toLocaleString("id-ID")}`]),
-          ["", "Total Aset", `Rp ${neracaData.total_aset?.toLocaleString("id-ID")}`],
-          ...(neracaData.kewajiban_lancar?.items || []).map((i) => ["Kewajiban Lancar", i.produk_nama, `Rp ${i.saldo.toLocaleString("id-ID")}`]),
-          ...(neracaData.kewajiban_jangka_panjang?.items || []).map((i) => ["Kewajiban Jangka Panjang", i.produk_nama, `Rp ${i.saldo.toLocaleString("id-ID")}`]),
-          ["", "Total Kewajiban", `Rp ${neracaData.total_kewajiban?.toLocaleString("id-ID")}`],
+          ['Total Pendapatan', formatRp(totalPendapatan)],
+          ['Total Pengeluaran', formatRp(totalPengeluaran)],
+          ['Laba/Rugi Bersih', formatRp(totalPendapatan - totalPengeluaran)],
         ],
-        startY: 30,
+        theme: 'grid',
+        styles: {
+          fontStyle: 'bold',
+          fillColor: [230, 247, 255],
+          textColor: [0, 0, 0]
+        },
+        columnStyles: { 0: { fontStyle: 'bold' } },
       });
-      const y = (doc.lastAutoTable?.finalY || 22) + 12;
-      doc.text(`Total (Aset - Kewajiban): Rp ${neracaData.total?.toLocaleString("id-ID")}`, 14, y);
-    } else if (activeTab === "arusKas") {
-      doc.text("Laporan Arus Kas", 14, 22);
+      finalY = doc.lastAutoTable.finalY + 10;
+
+      // Detail Pendapatan
+      doc.setFontSize(12);
+      doc.text("Detail Pendapatan", margin, finalY);
+      finalY += 5;
       autoTable(doc, {
-        head: [["Nama Akun Kas", "Saldo Akhir"]],
-        body: arusKasData.map((r) => [r.nama_akun, `Rp ${Number(r.saldo_akhir || 0).toLocaleString("id-ID")}`]),
-        startY: 30,
-        foot: [[
-          "Total Saldo Kas",
-          `Rp ${arusKasData.reduce((s, r) => s + Number(r.saldo_akhir || 0), 0).toLocaleString("id-ID")}`,
-        ]],
+        startY: finalY,
+        head: [['Tanggal', 'Deskripsi', 'Jumlah']],
+        body: pendapatan.map(p => [fmtTanggal(p), p.deskripsi || "-", formatRp(p.debit)]),
+        theme: 'striped',
+        headStyles: { fillColor: [22, 163, 74] }, // Green
+      });
+      finalY = doc.lastAutoTable.finalY + 10;
+
+      // Detail Pengeluaran
+      doc.setFontSize(12);
+      doc.text("Detail Pengeluaran", margin, finalY);
+      finalY += 5;
+      autoTable(doc, {
+        startY: finalY,
+        head: [['Tanggal', 'Deskripsi', 'Jumlah']],
+        body: pengeluaran.map(p => [fmtTanggal(p), p.deskripsi || "-", formatRp(p.kredit)]),
+        theme: 'striped',
+        headStyles: { fillColor: [220, 38, 38] }, // Red
+      });
+
+    } else if (activeTab === "neraca" && neracaData) {
+      addHeader("Laporan Neraca");
+      if (neracaStart && neracaEnd) {
+        doc.setFontSize(10);
+        doc.text(`Periode: ${fmtTanggal(neracaStart)} - ${fmtTanggal(neracaEnd)}`, margin, finalY - 5);
+      }
+
+      // Aset
+      doc.setFontSize(14);
+      doc.text("ASET", margin, finalY);
+      finalY += 8;
+      autoTable(doc, {
+        startY: finalY,
+        head: [['Aset Lancar', 'Jumlah']],
+        body: (neracaData.aset_lancar?.items || []).map(i => [i.produk_nama, formatRp(i.saldo)]),
+        foot: [['Total Aset Lancar', formatRp(neracaData.aset_lancar?.saldo)]],
+        theme: 'striped',
+        headStyles: { fillColor: [37, 99, 235] },
+        footStyles: { fontStyle: 'bold' },
+      });
+      finalY = doc.lastAutoTable.finalY + 5;
+      autoTable(doc, {
+        startY: finalY,
+        head: [['Aset Tetap', 'Jumlah']],
+        body: (neracaData.aset_tetap?.items || []).map(i => [i.produk_nama, formatRp(i.saldo)]),
+        foot: [['Total Aset Tetap', formatRp(neracaData.aset_tetap?.saldo)]],
+        theme: 'striped',
+        headStyles: { fillColor: [37, 99, 235] },
+        footStyles: { fontStyle: 'bold' },
+      });
+      finalY = doc.lastAutoTable.finalY + 10;
+      autoTable(doc, {
+        startY: finalY,
+        body: [['Total Aset', formatRp(neracaData.total_aset)]],
+        theme: 'grid',
+        bodyStyles: { fontStyle: 'bold', fontSize: 12, fillColor: [226, 232, 240] },
+      });
+      finalY = doc.lastAutoTable.finalY + 10;
+
+      // Kewajiban
+      doc.setFontSize(14);
+      doc.text("KEWAJIBAN & EKUITAS", margin, finalY);
+      finalY += 8;
+      autoTable(doc, {
+        startY: finalY,
+        head: [['Kewajiban Lancar', 'Jumlah']],
+        body: (neracaData.kewajiban_lancar?.items || []).map(i => [i.produk_nama, formatRp(i.saldo)]),
+        foot: [['Total Kewajiban Lancar', formatRp(neracaData.kewajiban_lancar?.saldo)]],
+        theme: 'striped',
+        headStyles: { fillColor: [217, 119, 6] },
+        footStyles: { fontStyle: 'bold' },
+      });
+      finalY = doc.lastAutoTable.finalY + 5;
+      autoTable(doc, {
+        startY: finalY,
+        head: [['Kewajiban Jangka Panjang', 'Jumlah']],
+        body: (neracaData.kewajiban_jangka_panjang?.items || []).map(i => [i.produk_nama, formatRp(i.saldo)]),
+        foot: [['Total Kewajiban Jangka Panjang', formatRp(neracaData.kewajiban_jangka_panjang?.saldo)]],
+        theme: 'striped',
+        headStyles: { fillColor: [217, 119, 6] },
+        footStyles: { fontStyle: 'bold' },
+      });
+      finalY = doc.lastAutoTable.finalY + 10;
+      autoTable(doc, {
+        startY: finalY,
+        body: [
+          ['Total Kewajiban', formatRp(neracaData.total_kewajiban)],
+          ['Ekuitas (Aset - Kewajiban)', formatRp(neracaData.total)]
+        ],
+        theme: 'grid',
+        bodyStyles: { fontStyle: 'bold', fontSize: 12, fillColor: [226, 232, 240] },
+      });
+
+
+    } else if (activeTab === "arusKas") {
+      const selectedAkun = akunKas.find(a => a.akun_id === selectedAkunId);
+      addHeader("Laporan Arus Kas");
+      doc.setFontSize(11);
+      doc.text(`Akun Kas: ${selectedAkun ? selectedAkun.nama : 'Semua Akun'}`, margin, finalY - 8);
+      if (startDate && endDate) {
+        doc.text(`Periode: ${fmtTanggal(startDate)} - ${fmtTanggal(endDate)}`, margin, finalY - 2);
+      }
+      finalY += 5;
+
+      // Ringkasan Arus Kas
+      autoTable(doc, {
+        startY: finalY,
+        body: [
+          ['Total Pemasukan', formatRp(sumMasuk)],
+          ['Total Pengeluaran', formatRp(sumKeluar)],
+          ['Arus Kas Bersih', formatRp(net)],
+        ],
+        theme: 'grid',
+        styles: { fontStyle: 'bold', fillColor: [230, 247, 255] },
+      });
+      finalY = doc.lastAutoTable.finalY + 10;
+
+      // Detail Pemasukan
+      doc.setFontSize(12);
+      doc.text("Detail Pemasukan (Masuk)", margin, finalY);
+      finalY += 5;
+      autoTable(doc, {
+        startY: finalY,
+        head: [['Tanggal', 'Deskripsi', 'Jumlah']],
+        body: arusMasuk.map(r => [fmtTanggal(r), r.deskripsi || "-", formatRp(r.debit)]),
+        theme: 'striped',
+        headStyles: { fillColor: [22, 163, 74] },
+      });
+      finalY = doc.lastAutoTable.finalY + 10;
+
+      // Detail Pengeluaran
+      doc.setFontSize(12);
+      doc.text("Detail Pengeluaran (Keluar)", margin, finalY);
+      finalY += 5;
+      autoTable(doc, {
+        startY: finalY,
+        head: [['Tanggal', 'Deskripsi', 'Jumlah']],
+        body: arusKeluar.map(r => [fmtTanggal(r), r.deskripsi || "-", formatRp(r.kredit)]),
+        theme: 'striped',
+        headStyles: { fillColor: [220, 38, 38] },
       });
     }
 
-    doc.save("laporan-keuangan.pdf");
+    addFooter();
+    doc.save(`laporan-${activeTab}-${new Date().toISOString().slice(0,10)}.pdf`);
   }
 
   const renderLabaRugi = () => (
