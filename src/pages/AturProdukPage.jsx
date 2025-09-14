@@ -40,6 +40,7 @@ export default function AturProdukPage() {
     //   userinfo
     const currentUser = getCurrentUser();
     const userId = currentUser?.user_id || null;
+    const klasterId = currentUser?.klaster_id || null;
   // ====== loading ======
   const [loadingProduk, setLoadingProduk] = useState(false);
   const [loadingAkun, setLoadingAkun] = useState(false);
@@ -170,10 +171,10 @@ export default function AturProdukPage() {
 
     const base = {
       user_id: userId || undefined,
-      // jangan set page/limit di sini; fetchAll yg atur
+      klaster_id: klasterId,
       jenis: katFilterJenis || undefined,
       search: katSearch || undefined,
-    };
+    };
 
     if (katFilterScope === "own") {
       base.user_id = localStorage.getItem("user_id") || userId || undefined;
