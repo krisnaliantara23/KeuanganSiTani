@@ -1,23 +1,33 @@
-import api from '../lib/api';
+import axios from "axios";
 
-const API_URL = '/produk';
+const API_URL = "https://be-laporankeuangan.up.railway.app/api/produk";
 
 export const getProducts = async (params = {}) => {
-  return api.get(`${API_URL}/saya`, { params });
+  return axios.get(`${API_URL}/saya`, { 
+    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+   });
 };
 
 export const getProductById = async (id) => {
-  return api.get(`${API_URL}/${id}`);
+  return axios.get(`${API_URL}/${id}`, {
+    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+  });
 };
 
 export const createProduct = async (data) => {
-  return api.post(API_URL, data);
+  return axios.post(API_URL, data, {
+    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+  });
 };
 
 export const updateProduct = async (id, data) => {
-  return api.put(`${API_URL}/${id}`, data);
+  return axios.put(`${API_URL}/${id}`, data, {
+    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+  });
 };
 
 export const deleteProduct = async (id) => {
-  return api.delete(`${API_URL}/${id}`);
+  return axios.delete(`${API_URL}/${id}`, {
+    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+  });
 };

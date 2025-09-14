@@ -1,27 +1,33 @@
-import api from '../lib/api';
+// services/kategoriService.js
+import axios from "axios"; // paka
+const API_KATEGORI = "https://be-laporankeuangan.up.railway.app/api/kategori";
 
-const API_KATEGORI = '/kategori';
+
+const auth = () => ({
+  headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+});
+
 
 // GET /api/kategori/scope?user_id&klaster_id&jenis&search&page&limit
 export const listKategoriScope = async (params = {}) => {
-  return api.get(`${API_KATEGORI}/scope`, { params });
+  return axios.get(`${API_KATEGORI}/scope`, { params, ...auth() });
 };
 
 // DELETE /api/kategori/:id
 export const deleteKategori = async (id) => {
-  return api.delete(`${API_KATEGORI}/${id}`);
+  return axios.delete(`${API_KATEGORI}/${id}`, auth());
 };
 
-export const createKategori = async (data) => {
-  return api.post(`${API_KATEGORI}`, data);
-};
+export const createKategori = async (data) =>{
+  return axios.post(`${API_KATEGORI}`, data, auth());
+}
 
 export const listKategoriScopev2 = (params = {}) => {
   const q = {};
-  if (params.user_id) q.user_id = params.user_id;
+  if (params.user_id)   q.user_id = params.user_id;
   if (params.klaster_id) q.klaster_id = params.klaster_id;
-  if (params.jenis) q.jenis = params.jenis; // "pemasukan" | "pengeluaran" | "produk"
-  q.page = params.page ?? 1;
+  if (params.jenis)     q.jenis = params.jenis; // "pemasukan" | "pengeluaran" | "produk"
+  q.page  = params.page  ?? 1;
   q.limit = params.limit ?? 200;
-  return api.get(`${API_KATEGORI}/scope`, { params: q });
+  return axios.get(`${API_KATEGORI}/scope`, { params: q, ...auth() });
 };
