@@ -37,10 +37,11 @@ export default function AturProdukPage() {
   const [akunKas, setAkunKas] = useState([]);
   const [kategori, setKategori] = useState([]);
 
-    //   userinfo
-    const currentUser = getCurrentUser();
-    const userId = currentUser?.user_id || null;
-    const klasterId = currentUser?.klaster_id || null;
+  // userinfo
+  const currentUser = getCurrentUser();
+  const userId = currentUser?.user_id || null;
+  const klasterId = currentUser?.klaster_id || null;
+
   // ====== loading ======
   const [loadingProduk, setLoadingProduk] = useState(false);
   const [loadingAkun, setLoadingAkun] = useState(false);
@@ -116,7 +117,6 @@ export default function AturProdukPage() {
     try {
       setLoadingProduk(true);
       const res = await getProducts();
-      console.log(res)
       const list = Array.isArray(res.data?.data) ? res.data.data : res.data || [];
       setProducts(list);
     } catch (e) {
@@ -140,65 +140,64 @@ export default function AturProdukPage() {
       setLoadingAkun(false);
     }
   }
-// panggil berulang apiFn({...baseParams, page, limit}) sampai habis
-    async function fetchAll(apiFn, baseParams = {}, pageSize = 100) {
-        let page = 1;
-        let all = [];
-        let total = Infinity;
+
+  // panggil berulang apiFn({...baseParams, page, limit}) sampai habis
+  async function fetchAll(apiFn, baseParams = {}, pageSize = 100) {
+    let page = 1;
+    let all = [];
+    let total = Infinity;
 
     while (all.length < total) {
-        const res = await apiFn({ ...baseParams, page, limit: pageSize });
+      const res = await apiFn({ ...baseParams, page, limit: pageSize });
 
-        // normalisasi payload
-        const payload = res?.data || {};
-        const rows =
+      // normalisasi payload
+      const payload = res?.data || {};
+      const rows =
         Array.isArray(payload.data) ? payload.data :
         Array.isArray(payload)     ? payload     : [];
-        const t = payload.total ?? payload.pagination?.total ?? (all.length + rows.length);
+      const t = payload.total ?? payload.pagination?.total ?? (all.length + rows.length);
 
-        all.push(...rows);
-        if (!rows.length) break;
+      all.push(...rows);
+      if (!rows.length) break;
 
-        total = t;
-        page++;
+      total = t;
+      page++;
     }
     return all;
-    }
+  }
 
   async function loadKategori() {
-  try {
-    setLoadingKategori(true);
+    try {
+      setLoadingKategori(true);
 
-    const base = {
-      user_id: userId || undefined,
-      klaster_id: klasterId,
-      jenis: katFilterJenis || undefined,
-      search: katSearch || undefined,
-    };
+      const base = {
+        user_id: userId || undefined,
+        klaster_id: klasterId,
+        jenis: katFilterJenis || undefined,
+        search: katSearch || undefined,
+      };
 
-    if (katFilterScope === "own") {
-      base.user_id = localStorage.getItem("user_id") || userId || undefined;
-    } else if (katFilterScope === "klaster") {
-      base.klaster_id = localStorage.getItem("klaster_id") || undefined;
+      if (katFilterScope === "own") {
+        base.user_id = localStorage.getItem("user_id") || userId || undefined;
+      } else if (katFilterScope === "klaster") {
+        base.klaster_id = localStorage.getItem("klaster_id") || undefined;
+      }
+
+      const list = await fetchAll(listKategoriScope, base, 200);
+      setKategori(list);
+    } catch (e) {
+      console.error("Gagal ambil kategori:", e);
+      setKategori([]);
+    } finally {
+      setLoadingKategori(false);
     }
-
-    // ⬇️ kirim REFERENSI FUNGSI + PARAMS
-    const list = await fetchAll(listKategoriScope, base, 200);
-    setKategori(list);
-  } catch (e) {
-    console.error("Gagal ambil kategori:", e);
-    setKategori([]);
-  } finally {
-    setLoadingKategori(false);
   }
-}
 
   // opsi kategori untuk dropdown produk
   async function loadKategoriDropdown() {
     try {
       setCatLoading(true);
-      // ambil semua kategori (biar bisa pilih bebas), tampilkan label dengan jenis/sub_kelompok
-      const res = await listKategoriScopev2(getScopeParams({ limit: 300, user_id: userId}));
+      const res = await listKategoriScopev2(getScopeParams({ limit: 300, user_id: userId }));
       const list = Array.isArray(res.data?.data) ? res.data.data : [];
       setCatOpts(list);
     } catch (e) {
@@ -334,7 +333,7 @@ export default function AturProdukPage() {
     }
   }
 
-  // ====== Kategori: create & delete (update jika API tersedia) ======
+  // ====== Kategori: create & delete ======
   async function submitCreateKategori(e) {
     e.preventDefault();
     try {
@@ -346,7 +345,7 @@ export default function AturProdukPage() {
       setShowAddKategori(false);
       setKatForm({ nama: "", jenis: "produk", share_klaster: false });
       await loadKategori();
-      await loadKategoriDropdown(); // refresh opsi dropdown di produk
+      await loadKategoriDropdown(); // refresh dropdown produk
     } catch (e2) {
       alert(e2?.response?.data?.message || "Gagal membuat kategori");
     }
@@ -365,87 +364,158 @@ export default function AturProdukPage() {
 
   // ====== RENDER ======
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6">
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-md p-6 mb-6 flex flex-wrap gap-3 justify-between items-center">
-        <h2 className="text-2xl font-bold">Atur Produk, Akun Kas & Kategori</h2>
-        <div className="flex gap-2">
-          <button className="bg-indigo-600 text-white px-4 py-2 rounded" onClick={openCreateProduk}>
-            + Tambah Kategori/Produk
-          </button>
-          <button className="bg-sky-600 text-white px-4 py-2 rounded" onClick={openCreateAkun}>
-            + Tambah Akun Kas
-          </button>
-           <button className="bg-emerald-600 ..." onClick={() => {
-            setKatForm({ nama: "", jenis: "pemasukan", share_klaster: false });
-            setShowAddKategori(true);}}>
-            + Tambah Kategori
+      <div className="bg-white rounded-xl shadow-md p-4 md:p-6 mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <h2 className="text-xl md:text-2xl font-bold">Atur Produk, Akun Kas & Kategori</h2>
+
+          {/* action buttons → stack di mobile */}
+          <div className="flex gap-2 flex-wrap">
+            <button
+              className="bg-indigo-600 text-white px-3 py-2 md:px-4 md:py-2 rounded text-sm md:text-base"
+              onClick={openCreateProduk}
+            >
+              + Tambah Kategori/Produk
             </button>
+            <button
+              className="bg-sky-600 text-white px-3 py-2 md:px-4 md:py-2 rounded text-sm md:text-base"
+              onClick={openCreateAkun}
+            >
+              + Tambah Akun Kas
+            </button>
+            <button
+              className="bg-emerald-600 text-white px-3 py-2 md:px-4 md:py-2 rounded text-sm md:text-base"
+              onClick={() => {
+                setKatForm({ nama: "", jenis: "pemasukan", share_klaster: false });
+                setShowAddKategori(true);
+              }}
+            >
+              + Tambah Kategori
+            </button>
+          </div>
         </div>
       </div>
 
+      {/* GRID konten → jadi 1 kolom di mobile */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* ====== Produk ====== */}
-        <div className="bg-white rounded-xl shadow-md p-6">
+        <div className="bg-white rounded-xl shadow-md p-4 md:p-6">
           <h3 className="text-lg font-semibold mb-4">Kelola Produk</h3>
-          <table className="w-full text-left border">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="p-2">Nama</th>
-                <th className="p-2">Kategori</th>
-                <th className="p-2">Jenis</th>
-                <th className="p-2">Share</th>
-                <th className="p-2">Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loadingProduk ? (
-                <tr>
-                  <td className="p-3 text-center text-gray-500" colSpan={4}>
-                    Memuat…
-                  </td>
-                </tr>
-              ) : products.length ? (
-                products.map((p) => (
-                  <tr key={p.produk_id} className="border-t">
-                    <td className="p-2">{p.nama}</td>
-                    <td className="p-2">{p.kategori.nama || "-"}</td>
-                    <td className="p-2">{p.kategori.jenis || "-"}</td>
-                    <td className="p-2">{(p.share_to_klaster ?? p.share_klaster ?? p.klaster_id) ? "Klaster" : "Pribadi"}</td>
-                    <td className="p-2">
-                      <div className="flex gap-2">
-                        <button className="px-2 py-1 rounded bg-amber-500 text-white" onClick={() => openEditProduk(p)}>
-                          Edit
-                        </button>
-                        <button
-                          className="px-2 py-1 rounded bg-rose-600 text-white"
-                          onClick={() => onDeleteProduk(p.produk_id, p.nama)}
-                        >
-                          Hapus
-                        </button>
+
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-3">
+            {loadingProduk ? (
+              <div className="text-center text-gray-500 py-6">Memuat…</div>
+            ) : products.length ? (
+              products.map((p) => (
+                <div
+                  key={p.produk_id}
+                  className="rounded-lg border p-4 flex flex-col gap-2"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-semibold">{p.nama}</div>
+                      <div className="text-xs text-gray-500">
+                        {(p.share_to_klaster ?? p.share_klaster ?? p.klaster_id) ? "Klaster" : "Pribadi"}
                       </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        className="px-2 py-1 rounded bg-amber-500 text-white text-sm"
+                        onClick={() => openEditProduk(p)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="px-2 py-1 rounded bg-rose-600 text-white text-sm"
+                        onClick={() => onDeleteProduk(p.produk_id, p.nama)}
+                      >
+                        Hapus
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-700">
+                    <span className="font-medium">Kategori:</span>{" "}
+                    {p.kategori?.nama ?? "-"}
+                  </div>
+                  <div className="text-sm text-gray-700">
+                    <span className="font-medium">Jenis:</span>{" "}
+                    {p.kategori?.jenis ?? "-"}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center text-gray-500 py-6">Tidak ada produk.</div>
+            )}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-left border">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="p-2">Nama</th>
+                  <th className="p-2">Kategori</th>
+                  <th className="p-2">Jenis</th>
+                  <th className="p-2">Share</th>
+                  <th className="p-2">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loadingProduk ? (
+                  <tr>
+                    <td className="p-3 text-center text-gray-500" colSpan={5}>
+                      Memuat…
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td className="p-3 text-center text-gray-500" colSpan={4}>
-                    Tidak ada produk.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                ) : products.length ? (
+                  products.map((p) => (
+                    <tr key={p.produk_id} className="border-t">
+                      <td className="p-2">{p.nama}</td>
+                      <td className="p-2">{p.kategori?.nama || "-"}</td>
+                      <td className="p-2">{p.kategori?.jenis || "-"}</td>
+                      <td className="p-2">
+                        {(p.share_to_klaster ?? p.share_klaster ?? p.klaster_id) ? "Klaster" : "Pribadi"}
+                      </td>
+                      <td className="p-2">
+                        <div className="flex gap-2">
+                          <button
+                            className="px-2 py-1 rounded bg-amber-500 text-white"
+                            onClick={() => openEditProduk(p)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="px-2 py-1 rounded bg-rose-600 text-white"
+                            onClick={() => onDeleteProduk(p.produk_id, p.nama)}
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td className="p-3 text-center text-gray-500" colSpan={5}>
+                      Tidak ada produk.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
           {/* ===== Modal CREATE Produk ===== */}
           {showAddProduk && (
             <div className="modal-overlay">
-              <div className="modal-box">
+              <div className="modal-box w-full max-w-none md:max-w-lg h-[100dvh] md:h-auto rounded-none md:rounded-xl overflow-y-auto">
                 <h3 className="text-xl font-bold mb-4">Tambah Produk</h3>
                 <form onSubmit={submitCreateProduk} className="flex flex-col gap-3">
                   <input
                     type="text"
-                    className="border rounded px-2 py-1"
+                    className="border rounded px-3 py-2"
                     placeholder="Nama produk"
                     value={produkForm.nama}
                     onChange={(e) => setProdukForm({ ...produkForm, nama: e.target.value })}
@@ -454,7 +524,7 @@ export default function AturProdukPage() {
 
                   <div className="font-bold">Kategori (opsional)</div>
                   <select
-                    className="border rounded px-2 py-1"
+                    className="border rounded px-3 py-2"
                     value={produkKategoriId}
                     onChange={(e) => setProdukKategoriId(e.target.value)}
                     disabled={catLoading}
@@ -478,7 +548,7 @@ export default function AturProdukPage() {
                     Bagikan ke klaster
                   </label>
 
-                  <div className="flex justify-end gap-2">
+                  <div className="flex justify-end gap-2 sticky bottom-0 bg-white pt-2">
                     <button type="button" className="btn-cancel" onClick={() => setShowAddProduk(false)}>
                       Batal
                     </button>
@@ -494,12 +564,12 @@ export default function AturProdukPage() {
           {/* ===== Modal EDIT Produk ===== */}
           {showEditProdukId != null && (
             <div className="modal-overlay">
-              <div className="modal-box">
+              <div className="modal-box w-full max-w-none md:max-w-lg h-[100dvh] md:h-auto rounded-none md:rounded-xl overflow-y-auto">
                 <h3 className="text-xl font-bold mb-4">Edit Produk</h3>
                 <form onSubmit={submitEditProduk} className="flex flex-col gap-3">
                   <input
                     type="text"
-                    className="border rounded px-2 py-1"
+                    className="border rounded px-3 py-2"
                     placeholder="Nama produk"
                     value={produkForm.nama}
                     onChange={(e) => setProdukForm({ ...produkForm, nama: e.target.value })}
@@ -508,7 +578,7 @@ export default function AturProdukPage() {
 
                   <div className="font-bold">Kategori</div>
                   <select
-                    className="border rounded px-2 py-1"
+                    className="border rounded px-3 py-2"
                     value={produkKategoriId}
                     onChange={(e) => setProdukKategoriId(e.target.value)}
                     disabled={catLoading}
@@ -532,7 +602,7 @@ export default function AturProdukPage() {
                     Bagikan ke klaster
                   </label>
 
-                  <div className="flex justify-end gap-2">
+                  <div className="flex justify-end gap-2 sticky bottom-0 bg-white pt-2">
                     <button type="button" className="btn-cancel" onClick={() => setShowEditProdukId(null)}>
                       Batal
                     </button>
@@ -547,66 +617,116 @@ export default function AturProdukPage() {
         </div>
 
         {/* ====== Akun Kas ====== */}
-        <div className="bg-white rounded-xl shadow-md p-6">
+        <div className="bg-white rounded-xl shadow-md p-4 md:p-6">
           <h3 className="text-lg font-semibold mb-4">Kelola Akun Kas</h3>
-          <table className="w-full text-left border">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="p-2">Nama</th>
-                <th className="p-2">Deskripsi</th>
-                <th className="p-2">Share</th>
-                <th className="p-2">Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loadingAkun ? (
-                <tr>
-                  <td className="p-3 text-center text-gray-500" colSpan={4}>
-                    Memuat…
-                  </td>
-                </tr>
-              ) : akunKas.length ? (
-                akunKas.map((a) => (
-                  <tr key={a.akun_id} className="border-t">
-                    <td className="p-2">{a.nama}</td>
-                    <td className="p-2">{a.deskripsi || "-"}</td>
-                    <td className="p-2">
-                      {(a.share_to_klaster ?? a.share_klaster ?? a.klaster_id) ? "Klaster" : "Pribadi"}
-                    </td>
-                    <td className="p-2">
-                      <div className="flex gap-2">
-                        <button className="px-2 py-1 rounded bg-amber-500 text-white" onClick={() => openEditAkun(a)}>
-                          Edit
-                        </button>
-                        <button
-                          className="px-2 py-1 rounded bg-rose-600 text-white"
-                          onClick={() => onDeleteAkun(a.akun_id, a.nama)}
-                        >
-                          Hapus
-                        </button>
+
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-3">
+            {loadingAkun ? (
+              <div className="text-center text-gray-500 py-6">Memuat…</div>
+            ) : akunKas.length ? (
+              akunKas.map((a) => (
+                <div
+                  key={a.akun_id}
+                  className="rounded-lg border p-4 flex flex-col gap-2"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-semibold">{a.nama}</div>
+                      <div className="text-xs text-gray-500">
+                        {(a.share_to_klaster ?? a.share_klaster ?? a.klaster_id) ? "Klaster" : "Pribadi"}
                       </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        className="px-2 py-1 rounded bg-amber-500 text-white text-sm"
+                        onClick={() => openEditAkun(a)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="px-2 py-1 rounded bg-rose-600 text-white text-sm"
+                        onClick={() => onDeleteAkun(a.akun_id, a.nama)}
+                      >
+                        Hapus
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-700">
+                    <span className="font-medium">Deskripsi:</span>{" "}
+                    {a.deskripsi || "-"}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center text-gray-500 py-6">Tidak ada akun kas.</div>
+            )}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-left border">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="p-2">Nama</th>
+                  <th className="p-2">Deskripsi</th>
+                  <th className="p-2">Share</th>
+                  <th className="p-2">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loadingAkun ? (
+                  <tr>
+                    <td className="p-3 text-center text-gray-500" colSpan={4}>
+                      Memuat…
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td className="p-3 text-center text-gray-500" colSpan={4}>
-                    Tidak ada akun kas.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                ) : akunKas.length ? (
+                  akunKas.map((a) => (
+                    <tr key={a.akun_id} className="border-t">
+                      <td className="p-2">{a.nama}</td>
+                      <td className="p-2">{a.deskripsi || "-"}</td>
+                      <td className="p-2">
+                        {(a.share_to_klaster ?? a.share_klaster ?? a.klaster_id) ? "Klaster" : "Pribadi"}
+                      </td>
+                      <td className="p-2">
+                        <div className="flex gap-2">
+                          <button
+                            className="px-2 py-1 rounded bg-amber-500 text-white"
+                            onClick={() => openEditAkun(a)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="px-2 py-1 rounded bg-rose-600 text-white"
+                            onClick={() => onDeleteAkun(a.akun_id, a.nama)}
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td className="p-3 text-center text-gray-500" colSpan={4}>
+                      Tidak ada akun kas.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
           {/* Modal CREATE Akun */}
           {showAddAkun && (
             <div className="modal-overlay">
-              <div className="modal-box">
+              <div className="modal-box w-full max-w-none md:max-w-lg h-[100dvh] md:h-auto rounded-none md:rounded-xl overflow-y-auto">
                 <h3 className="text-xl font-bold mb-4">Tambah Akun Kas</h3>
                 <form onSubmit={submitCreateAkun} className="flex flex-col gap-3">
                   <input
                     type="text"
-                    className="border rounded px-2 py-1"
+                    className="border rounded px-3 py-2"
                     placeholder="Nama akun"
                     value={akunForm.nama}
                     onChange={(e) => setAkunForm({ ...akunForm, nama: e.target.value })}
@@ -614,14 +734,14 @@ export default function AturProdukPage() {
                   />
                   <input
                     type="text"
-                    className="border rounded px-2 py-1"
+                    className="border rounded px-3 py-2"
                     placeholder="Deskripsi"
                     value={akunForm.deskripsi}
                     onChange={(e) => setAkunForm({ ...akunForm, deskripsi: e.target.value })}
                   />
                   <input
                     type="text"
-                    className="border rounded px-2 py-1"
+                    className="border rounded px-3 py-2"
                     placeholder="Saldo awal (Rp)"
                     value={displaySaldo}
                     onChange={handleChangeSaldoAwal}
@@ -636,7 +756,7 @@ export default function AturProdukPage() {
                     Bagikan ke klaster
                   </label>
 
-                  <div className="flex justify-end gap-2">
+                  <div className="flex justify-end gap-2 sticky bottom-0 bg-white pt-2">
                     <button type="button" className="btn-cancel" onClick={() => setShowAddAkun(false)}>
                       Batal
                     </button>
@@ -652,12 +772,12 @@ export default function AturProdukPage() {
           {/* Modal EDIT Akun */}
           {editAkunId != null && (
             <div className="modal-overlay">
-              <div className="modal-box">
+              <div className="modal-box w-full max-w-none md:max-w-lg h-[100dvh] md:h-auto rounded-none md:rounded-xl overflow-y-auto">
                 <h3 className="text-xl font-bold mb-4">Edit Akun Kas</h3>
                 <form onSubmit={submitEditAkun} className="flex flex-col gap-3">
                   <input
                     type="text"
-                    className="border rounded px-2 py-1"
+                    className="border rounded px-3 py-2"
                     placeholder="Nama akun"
                     value={akunForm.nama}
                     onChange={(e) => setAkunForm({ ...akunForm, nama: e.target.value })}
@@ -665,7 +785,7 @@ export default function AturProdukPage() {
                   />
                   <input
                     type="text"
-                    className="border rounded px-2 py-1"
+                    className="border rounded px-3 py-2"
                     placeholder="Deskripsi"
                     value={akunForm.deskripsi}
                     onChange={(e) => setAkunForm({ ...akunForm, deskripsi: e.target.value })}
@@ -679,7 +799,7 @@ export default function AturProdukPage() {
                     Bagikan ke klaster
                   </label>
 
-                  <div className="flex justify-end gap-2">
+                  <div className="flex justify-end gap-2 sticky bottom-0 bg-white pt-2">
                     <button type="button" className="btn-cancel" onClick={() => setEditAkunId(null)}>
                       Batal
                     </button>
@@ -695,12 +815,12 @@ export default function AturProdukPage() {
       </div>
 
       {/* ====== Kategori ====== */}
-      <div className="bg-white rounded-xl shadow-md p-6 mt-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-white rounded-xl shadow-md p-4 md:p-6 mt-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
           <h3 className="text-lg font-semibold">Kelola Kategori</h3>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <select
-              className="border rounded px-2 py-1"
+              className="border rounded px-2 py-2 text-sm md:text-base"
               value={katFilterJenis}
               onChange={(e) => setKatFilterJenis(e.target.value)}
             >
@@ -710,7 +830,7 @@ export default function AturProdukPage() {
               <option value="produk">Produk</option>
             </select>
             <select
-              className="border rounded px-2 py-1"
+              className="border rounded px-2 py-2 text-sm md:text-base"
               value={katFilterScope}
               onChange={(e) => setKatFilterScope(e.target.value)}
               title="Scope"
@@ -720,65 +840,100 @@ export default function AturProdukPage() {
               <option value="klaster">Klaster</option>
             </select>
             <input
-              className="border rounded px-2 py-1"
+              className="border rounded px-2 py-2 text-sm md:text-base"
               placeholder="Cari kategori…"
               value={katSearch}
               onChange={(e) => setKatSearch(e.target.value)}
             />
-            <button className="px-3 py-1 bg-gray-100 rounded border" onClick={loadKategori}>
+            <button className="px-3 py-2 bg-gray-100 rounded border text-sm md:text-base" onClick={loadKategori}>
               Terapkan
             </button>
           </div>
         </div>
 
-        <table className="w-full text-left border">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="p-2">Nama</th>
-              <th className="p-2">Jenis</th>
-              <th className="p-2">Share</th>
-              <th className="p-2">Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loadingKategori ? (
-              <tr>
-                <td className="p-3 text-center text-gray-500" colSpan={4}>
-                  Memuat…
-                </td>
+        {/* Mobile cards */}
+        <div className="md:hidden space-y-3">
+          {loadingKategori ? (
+            <div className="text-center text-gray-500 py-6">Memuat…</div>
+          ) : kategori.length ? (
+            kategori.map((k) => (
+              <div key={k.kategori_id} className="rounded-lg border p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-semibold">{k.nama}</div>
+                    <div className="text-xs text-gray-500">
+                      {(k.share_to_klaster ?? k.share_klaster) ? "Klaster" : "Pribadi"}
+                    </div>
+                  </div>
+                  <button
+                    className="px-2 py-1 rounded bg-rose-600 text-white text-sm"
+                    onClick={() => onDeleteKategori(k)}
+                  >
+                    Hapus
+                  </button>
+                </div>
+                <div className="text-sm text-gray-700 mt-1">
+                  <span className="font-medium">Jenis:</span> {k.jenis || "-"}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center text-gray-500 py-6">Tidak ada kategori.</div>
+          )}
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full text-left border">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="p-2">Nama</th>
+                <th className="p-2">Jenis</th>
+                <th className="p-2">Share</th>
+                <th className="p-2">Aksi</th>
               </tr>
-            ) : kategori.length ? (
-              kategori.map((k) => (
-                <tr key={k.kategori_id} className="border-t">
-                  <td className="p-2">{k.nama}</td>
-                  <td className="p-2">{k.jenis || "-"}</td>
-                  <td className="p-2">   {(k.share_to_klaster ?? k.share_klaster) ? "Klaster" : "Pribadi"} </td>
-                  <td className="p-2">
-                    <button
-                      className="px-2 py-1 rounded bg-rose-600 text-white"
-                      onClick={() => onDeleteKategori(k)}
-                    >
-                      Hapus
-                    </button>
-                    {/* NOTE: Jika API updateKategori tersedia, buat tombol Edit di sini */}
+            </thead>
+            <tbody>
+              {loadingKategori ? (
+                <tr>
+                  <td className="p-3 text-center text-gray-500" colSpan={4}>
+                    Memuat…
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td className="p-3 text-center text-gray-500" colSpan={4}>
-                  Tidak ada kategori.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              ) : kategori.length ? (
+                kategori.map((k) => (
+                  <tr key={k.kategori_id} className="border-t">
+                    <td className="p-2">{k.nama}</td>
+                    <td className="p-2">{k.jenis || "-"}</td>
+                    <td className="p-2">
+                      {(k.share_to_klaster ?? k.share_klaster) ? "Klaster" : "Pribadi"}
+                    </td>
+                    <td className="p-2">
+                      <button
+                        className="px-2 py-1 rounded bg-rose-600 text-white"
+                        onClick={() => onDeleteKategori(k)}
+                      >
+                        Hapus
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td className="p-3 text-center text-gray-500" colSpan={4}>
+                    Tidak ada kategori.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Modal Tambah Kategori */}
       {showAddKategori && (
         <div className="modal-overlay">
-          <div className="modal-box">
+          <div className="modal-box w-full max-w-none md:max-w-lg h-[100dvh] md:h-auto rounded-none md:rounded-xl overflow-y-auto">
             <h3 className="text-xl font-bold mb-4">Tambah Kategori</h3>
             <form onSubmit={submitCreateKategori} className="flex flex-col gap-3">
               <input
@@ -789,7 +944,7 @@ export default function AturProdukPage() {
                 required
               />
               <select
-                className="border rounded px-2 py-1"
+                className="border rounded px-3 py-2"
                 value={katForm.jenis}
                 onChange={(e) => setKatForm({ ...katForm, jenis: e.target.value })}
               >
@@ -806,7 +961,7 @@ export default function AturProdukPage() {
                 Bagikan ke klaster
               </label>
 
-              <div className="flex justify-end gap-2">
+              <div className="flex justify-end gap-2 sticky bottom-0 bg-white pt-2">
                 <button type="button" className="btn-cancel" onClick={() => setShowAddKategori(false)}>
                   Batal
                 </button>

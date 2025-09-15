@@ -1,35 +1,25 @@
-// src/component/Layout.jsx
-import React from "react";
-import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion"; // Import motion
-import Sidebar from "./Sidebar";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import Header from "./Header";
-
-// Konfigurasi animasi
-const pageVariants = {
-  initial: {
-    opacity: 0,
-    y: 20,
-  },
-  in: {
-    opacity: 1,
-    y: 0,
-  },
-  out: {
-    opacity: 0,
-    y: -20,
-  },
-};
-
-
-const pageTransition = {
-  type: "tween",
-  ease: "anticipate",
-  duration: 0.5,
-};
+import Sidebar from "./Sidebar";
 
 export default function Layout({ children }) {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const location = useLocation();
   const navigate = useNavigate();
+
+  // Optional: tutup drawer saat pindah route
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [location.pathname]);
+
+  // Optional: cegah scroll body saat drawer mobile terbuka
+  useEffect(() => {
+    document.body.style.overflow = isSidebarOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isSidebarOpen]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -38,26 +28,16 @@ export default function Layout({ children }) {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Sidebar */}
-      <Sidebar />
+    <div className="min-h-screen bg-gray-50">
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col md:pl-64">
-        {/* Header */}
-        <Header onLogout={handleLogout} />
-
-        {/* Page Content with Animation */}
-        <motion.main
-          initial="initial"
-          animate="in"
-          exit="out"
-          variants={pageVariants}
-          transition={pageTransition}
-          className="flex-1 overflow-y-auto p-6"
-        >
-          {children}
-        </motion.main>
+      {/* Shift konten saat desktop (sidebar lebar 16rem) */}
+      <div className="md:ml-64">
+        <Header
+          onLogout={handleLogout}
+          onToggleSidebar={() => setIsSidebarOpen((v) => !v)}
+        />
+        <main className="p-4">{children}</main>
       </div>
     </div>
   );
