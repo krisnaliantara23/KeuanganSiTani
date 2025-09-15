@@ -337,14 +337,11 @@ export default function AturProdukPage() {
   async function submitCreateKategori(e) {
     e.preventDefault();
     try {
-      const payload = {
+      await createKategori({
         nama: katForm.nama,
-        jenis: katForm.jenis,
-        share_klaster: !!katForm.share_klaster,
-        user_id: userId,
-        klaster_id: katForm.share_klaster ? klasterId : null,
-      };
-      await createKategori(payload);
+        jenis: katForm.jenis, // pemasukan | pengeluaran | produk
+        share_klaster: !!katForm.share_klaster
+      });
       setShowAddKategori(false);
       setKatForm({ nama: "", jenis: "produk", share_klaster: false });
       await loadKategori();
@@ -941,7 +938,7 @@ export default function AturProdukPage() {
             <form onSubmit={submitCreateKategori} className="flex flex-col gap-3">
               <input
                 className="border rounded px-2 py-1"
-                placeholder="Nama Produk"
+                placeholder="Nama kategori"
                 value={katForm.nama}
                 onChange={(e) => setKatForm({ ...katForm, nama: e.target.value })}
                 required
