@@ -340,54 +340,57 @@ export default function PengeluaranPage() {
   return (
     <>
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-md p-6 mb-6 flex flex-wrap gap-3 justify-between items-center">
-        <h2 className="text-2xl font-bold">Pengeluaran Pertanian</h2>
-        <div className="flex gap-2 items-center">
-          <select
-            className="border rounded px-2 py-1"
-            value={filterShare}
-            onChange={(e) => setFilterShare(e.target.value)}
-            title="Filter laporan"
-          >
-            <option value="all">Semua</option>
-            <option value="own">Milik Saya</option>
-            <option value="shared">Share Klaster</option>
-          </select>
-          <button
-            className="bg-red-600 text-white px-4 py-2 rounded"
-            onClick={() => {
-              setEditingId(null);
-              setItems([{ produk_id: 0, qty: 1, harga_satuan: 0 }]);
-              setHargaDisplay([""]);
-              setForm({ akun_id: 0, deskripsi: "", tanggal: "", share_to_klaster: false });
-              setReplaceItems(true);
-              setShowModal(true);
-            }}
-          >
-            + Tambah Pengeluaran
-          </button>
+      <div className="bg-white rounded-xl shadow-md p-4 md:p-6 mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <h2 className="text-xl md:text-2xl font-bold">Pengeluaran Pertanian</h2>
+
+          <div className="flex gap-2 items-center flex-wrap">
+            <select
+              className="border rounded px-2 py-2 text-sm md:text-base"
+              value={filterShare}
+              onChange={(e) => setFilterShare(e.target.value)}
+              title="Filter laporan"
+            >
+              <option value="all">Semua</option>
+              <option value="own">Milik Saya</option>
+              <option value="shared">Share Klaster</option>
+            </select>
+            <button
+              className="bg-red-600 text-white px-3 py-2 md:px-4 md:py-2 rounded text-sm md:text-base"
+              onClick={() => {
+                setEditingId(null);
+                setItems([{ produk_id: 0, qty: 1, harga_satuan: 0 }]);
+                setHargaDisplay([""]);
+                setForm({ akun_id: 0, deskripsi: "", tanggal: "", share_to_klaster: false });
+                setReplaceItems(true);
+                setShowModal(true);
+              }}
+            >
+              + Tambah Pengeluaran
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Transaksi Terakhir */}
       {transaksiTerakhir && (
-        <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+        <div className="bg-white rounded-xl shadow-md p-4 md:p-6 mb-6">
           <h3 className="text-lg font-semibold mb-4 border-b pb-2">Transaksi Terakhir</h3>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div>
-              <p className="text-sm text-gray-500">Tanggal</p>
+              <p className="text-xs md:text-sm text-gray-500">Tanggal</p>
               <p className="font-medium">
                 {new Date(transaksiTerakhir.tanggal).toLocaleDateString("id-ID")}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Jumlah</p>
+              <p className="text-xs md:text-sm text-gray-500">Jumlah</p>
               <p className="font-medium text-red-600">
                 Rp {transaksiTerakhir.kredit?.toLocaleString("id-ID")}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Akun Kas</p>
+              <p className="text-xs md:text-sm text-gray-500">Akun Kas</p>
               <p className="font-medium">
                 {akunTerakhir?.nama
                   ? akunTerakhir.nama
@@ -401,47 +404,53 @@ export default function PengeluaranPage() {
                 </p>
               )}
             </div>
-            <div>
-              <p className="text-sm text-gray-500">Deskripsi</p>
+            <div className="md:col-span-1">
+              <p className="text-xs md:text-sm text-gray-500">Deskripsi</p>
               <p className="font-medium">{transaksiTerakhir.deskripsi || "-"}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Share</p>
+              <p className="text-xs md:text-sm text-gray-500">Share</p>
               <p className="font-medium">{isShared(transaksiTerakhir) ? "Klaster" : "Pribadi"}</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Tabel Riwayat */}
-      <div className="bg-white rounded-xl shadow-md p-6">
+      {/* ====== Riwayat (Mobile Cards) ====== */}
+      <div className="md:hidden bg-white rounded-xl shadow-md p-4">
         <h3 className="text-lg font-semibold mb-4">Riwayat Pengeluaran</h3>
-        <table className="w-full text-left border">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="p-2">Nomor</th>
-              <th className="p-2">Jumlah</th>
-              <th className="p-2">Deskripsi</th>
-              <th className="p-2">Tanggal</th>
-              <th className="p-2">Share</th>
-              <th className="p-2">Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
+
+        {pengeluaranFiltered.length === 0 ? (
+          <div className="text-center text-gray-500 py-6">Tidak ada data.</div>
+        ) : (
+          <div className="space-y-3">
             {pengeluaranFiltered.map((item, i) => (
-              <tr key={item.id_laporan} className="border-t">
-                <td className="p-2">{i + 1}</td>
-                <td className="p-2">Rp {item.kredit?.toLocaleString("id-ID")}</td>
-                <td className="p-2">{item.deskripsi}</td>
-                <td className="p-2">{new Date(item.tanggal).toLocaleDateString("id-ID")}</td>
-                <td className="p-2">{isShared(item) ? "Klaster" : "Pribadi"}</td>
-                <td className="p-2">
-                  <div className="flex gap-2">
-                    <button className="px-2 py-1 rounded bg-amber-500 text-white" onClick={() => onEdit(item)}>
+              <div key={item.id_laporan} className="rounded-lg border p-4">
+                <div className="flex justify-between items-start gap-3">
+                  <div>
+                    <div className="text-sm text-gray-500">
+                      {new Date(item.tanggal).toLocaleDateString("id-ID")}
+                    </div>
+                    <div className="text-base font-semibold text-red-700">
+                      Rp {item.kredit?.toLocaleString("id-ID")}
+                    </div>
+                    <div className="text-sm text-gray-700 line-clamp-2">
+                      {item.deskripsi || "-"}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {isShared(item) ? "Klaster" : "Pribadi"}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2 shrink-0">
+                    <button
+                      className="px-2 py-1 rounded bg-amber-500 text-white text-sm"
+                      onClick={() => onEdit(item)}
+                    >
                       Edit
                     </button>
                     <button
-                      className={`px-2 py-1 rounded bg-rose-600 text-white ${
+                      className={`px-2 py-1 rounded bg-rose-600 text-white text-sm ${
                         deletingId === item.id_laporan ? "opacity-60 cursor-not-allowed" : ""
                       }`}
                       onClick={() => onDelete(item)}
@@ -450,24 +459,70 @@ export default function PengeluaranPage() {
                       {deletingId === item.id_laporan ? "Menghapus..." : "Hapus"}
                     </button>
                   </div>
-                </td>
-              </tr>
+                </div>
+              </div>
             ))}
-            {pengeluaranFiltered.length === 0 && (
-              <tr>
-                <td className="p-3 text-center text-gray-500" colSpan={6}>
-                  Tidak ada data.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+          </div>
+        )}
       </div>
 
-      {/* Modal Tambah/Edit Pengeluaran */}
+      {/* ====== Riwayat (Desktop Table) ====== */}
+      <div className="hidden md:block bg-white rounded-xl shadow-md p-6 mt-6 md:mt-0">
+        <h3 className="text-lg font-semibold mb-4">Riwayat Pengeluaran</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="p-2">Nomor</th>
+                <th className="p-2">Jumlah</th>
+                <th className="p-2">Deskripsi</th>
+                <th className="p-2">Tanggal</th>
+                <th className="p-2">Share</th>
+                <th className="p-2">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pengeluaranFiltered.map((item, i) => (
+                <tr key={item.id_laporan} className="border-t">
+                  <td className="p-2">{i + 1}</td>
+                  <td className="p-2">Rp {item.kredit?.toLocaleString("id-ID")}</td>
+                  <td className="p-2">{item.deskripsi || "-"}</td>
+                  <td className="p-2">{new Date(item.tanggal).toLocaleDateString("id-ID")}</td>
+                  <td className="p-2">{isShared(item) ? "Klaster" : "Pribadi"}</td>
+                  <td className="p-2">
+                    <div className="flex gap-2">
+                      <button className="px-2 py-1 rounded bg-amber-500 text-white" onClick={() => onEdit(item)}>
+                        Edit
+                      </button>
+                      <button
+                        className={`px-2 py-1 rounded bg-rose-600 text-white ${
+                          deletingId === item.id_laporan ? "opacity-60 cursor-not-allowed" : ""
+                        }`}
+                        onClick={() => onDelete(item)}
+                        disabled={deletingId === item.id_laporan}
+                      >
+                        {deletingId === item.id_laporan ? "Menghapus..." : "Hapus"}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {pengeluaranFiltered.length === 0 && (
+                <tr>
+                  <td className="p-3 text-center text-gray-500" colSpan={6}>
+                    Tidak ada data.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ====== Modal Tambah/Edit Pengeluaran ====== */}
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-box max-w-3xl">
+          <div className="modal-box w-full max-w-none md:max-w-3xl h-[100dvh] md:h-auto rounded-none md:rounded-xl overflow-y-auto">
             <h3 className="text-xl font-bold mb-4">{editingId ? "Edit Pengeluaran" : "Tambah Pengeluaran"}</h3>
 
             {editingId && (
@@ -486,12 +541,12 @@ export default function PengeluaranPage() {
               </div>
             )}
 
-            <form onSubmit={submitLaporan} className="flex flex-col gap-3">
+            <form onSubmit={submitLaporan} className="flex flex-col gap-3 pb-3">
               {/* Akun Kas */}
               <select
                 value={form.akun_id}
                 onChange={(e) => setForm({ ...form, akun_id: Number(e.target.value) })}
-                className="block w-full border rounded"
+                className="block w-full border rounded px-3 py-2"
                 required
               >
                 <option value={0}>Pilih Akun Kas</option>
@@ -504,65 +559,120 @@ export default function PengeluaranPage() {
 
               {/* ITEMS */}
               <div className="border rounded p-3">
-                <div className="flex justify-between items-center mb-2">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-2">
                   <div className="font-semibold">Item Produk</div>
-                  <button type="button" className="px-2 py-1 rounded bg-emerald-600 text-white" onClick={addRow}>
+                  <button type="button" className="px-2 py-1 rounded bg-emerald-600 text-white text-sm md:text-base" onClick={addRow}>
                     + Tambah Baris
                   </button>
                 </div>
 
-                <div className="grid grid-cols-12 gap-2 text-sm font-medium mb-1">
-                  <div className="col-span-5">Produk</div>
+                {/* Header grid desktop */}
+                <div className="hidden md:grid grid-cols-12 gap-2 text-sm font-medium mb-1">
+                  <div className="col-span-6">Produk</div>
                   <div className="col-span-2">Qty</div>
                   <div className="col-span-3">Harga Satuan (Rp)</div>
+                  <div className="col-span-1"></div>
                 </div>
 
                 {items.map((r, idx) => (
-                  <div key={idx} className="grid grid-cols-12 gap-2 items-center mb-2">
-                    <div className="col-span-5">
-                      <select
-                        className="w-full border rounded"
-                        value={r.produk_id}
-                        onChange={(e) => onProdukChange(idx, e.target.value)}
-                        required
-                      >
-                        <option value={0}>Pilih produk</option>
-                        {produkPengeluaran.map((p) => (
-                          <option key={p.produk_id} value={p.produk_id}>
-                            {p.nama}
-                            {p.kategori_nama ? ` — ${p.kategori_nama}` : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-span-2">
-                      <input
-                        type="number"
-                        min="1"
-                        className="w-full border rounded px-2 py-1"
-                        value={r.qty}
-                        onChange={(e) => onQtyChange(idx, e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="col-span-3">
-                      <input
-                        type="text"
-                        className="w-full border rounded px-2 py-1"
-                        placeholder="Rp"
-                        value={hargaDisplay[idx] ?? ""}
-                        onChange={(e) => onHargaChange(idx, e)}
-                        onBlur={() => onHargaBlur(idx)}
-                        required
-                      />
-                    </div>
-
-                    <div className="col-span-12">
+                  <div key={idx} className="mb-3">
+                    {/* Mobile: stacked */}
+                    <div className="md:hidden space-y-2">
+                      <div>
+                        <label className="text-xs text-gray-500">Produk</label>
+                        <select
+                          className="w-full border rounded px-3 py-2"
+                          value={r.produk_id}
+                          onChange={(e) => onProdukChange(idx, e.target.value)}
+                          required
+                        >
+                          <option value={0}>Pilih produk</option>
+                          {produkPengeluaran.map((p) => (
+                            <option key={p.produk_id} value={p.produk_id}>
+                              {p.nama}
+                              {p.kategori_nama ? ` — ${p.kategori_nama}` : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs text-gray-500">Qty</label>
+                          <input
+                            type="number"
+                            min="1"
+                            className="w-full border rounded px-3 py-2"
+                            value={r.qty}
+                            onChange={(e) => onQtyChange(idx, e.target.value)}
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500">Harga Satuan (Rp)</label>
+                          <input
+                            type="text"
+                            className="w-full border rounded px-3 py-2"
+                            placeholder="Rp"
+                            value={hargaDisplay[idx] ?? ""}
+                            onChange={(e) => onHargaChange(idx, e)}
+                            onBlur={() => onHargaBlur(idx)}
+                            required
+                          />
+                        </div>
+                      </div>
                       {items.length > 1 && (
                         <button type="button" className="text-red-600 text-xs underline" onClick={() => removeRow(idx)}>
                           Hapus baris
                         </button>
                       )}
+                    </div>
+
+                    {/* Desktop: grid */}
+                    <div className="hidden md:grid grid-cols-12 gap-2 items-center">
+                      <div className="col-span-6">
+                        <select
+                          className="w-full border rounded px-2 py-1"
+                          value={r.produk_id}
+                          onChange={(e) => onProdukChange(idx, e.target.value)}
+                          required
+                        >
+                          <option value={0}>Pilih produk</option>
+                          {produkPengeluaran.map((p) => (
+                            <option key={p.produk_id} value={p.produk_id}>
+                              {p.nama}
+                              {p.kategori_nama ? ` — ${p.kategori_nama}` : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="col-span-2">
+                        <input
+                          type="number"
+                          min="1"
+                          className="w-full border rounded px-2 py-1"
+                          value={r.qty}
+                          onChange={(e) => onQtyChange(idx, e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <input
+                          type="text"
+                          className="w-full border rounded px-2 py-1"
+                          placeholder="Rp"
+                          value={hargaDisplay[idx] ?? ""}
+                          onChange={(e) => onHargaChange(idx, e)}
+                          onBlur={() => onHargaBlur(idx)}
+                          required
+                        />
+                      </div>
+                      <div className="col-span-1">
+                        {items.length > 1 && (
+                          <button type="button" className="text-red-600 text-xs underline" onClick={() => removeRow(idx)}>
+                            Hapus
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -578,7 +688,7 @@ export default function PengeluaranPage() {
                 Bagikan ke klaster
               </label>
 
-              <div className="flex justify-between">
+              <div className="flex flex-col md:flex-row md:justify-between gap-2">
                 <div className="text-sm text-gray-600">
                   {editingId && (
                     <label className="flex items-center gap-2">
@@ -597,6 +707,7 @@ export default function PengeluaranPage() {
               </div>
 
               <textarea
+                className="border rounded px-3 py-2"
                 placeholder="Deskripsi pengeluaran..."
                 value={form.deskripsi}
                 onChange={(e) => setForm({ ...form, deskripsi: e.target.value })}
@@ -604,12 +715,14 @@ export default function PengeluaranPage() {
 
               <input
                 type="date"
+                className="border rounded px-3 py-2"
                 value={form.tanggal}
                 onChange={(e) => setForm({ ...form, tanggal: e.target.value })}
                 required
               />
 
-              <div className="flex justify-end gap-3 mt-3">
+              {/* Sticky action bar (mobile) */}
+              <div className="flex flex-col md:flex-row md:justify-end gap-3 mt-3 sticky bottom-0 bg-white pt-3">
                 <button
                   type="button"
                   className="btn-cancel"
