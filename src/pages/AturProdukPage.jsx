@@ -337,11 +337,14 @@ export default function AturProdukPage() {
   async function submitCreateKategori(e) {
     e.preventDefault();
     try {
-      await createKategori({
+      const payload = {
         nama: katForm.nama,
-        jenis: katForm.jenis, // pemasukan | pengeluaran | produk
-        share_klaster: !!katForm.share_klaster
-      });
+        jenis: katForm.jenis,
+        share_klaster: !!katForm.share_klaster,
+        user_id: userId,
+        klaster_id: katForm.share_klaster ? klasterId : null,
+      };
+      await createKategori(payload);
       setShowAddKategori(false);
       setKatForm({ nama: "", jenis: "produk", share_klaster: false });
       await loadKategori();
