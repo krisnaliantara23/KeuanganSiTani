@@ -341,8 +341,7 @@ export default function AturProdukPage() {
       await createKategori({
         nama: katForm.nama,
         jenis: katForm.jenis, // pemasukan | pengeluaran | produk
-        share_klaster: !!katForm.share_klaster,
-        share_to_klaster: !!katForm.share_klaster
+        share_klaster: !!katForm.share_klaster
       });
       setShowAddKategori(false);
       setKatForm({ nama: "", jenis: "produk", share_klaster: false });
@@ -784,7 +783,7 @@ export default function AturProdukPage() {
             <form onSubmit={submitCreateKategori} className="flex flex-col gap-3">
               <input
                 className="border rounded px-2 py-1"
-                placeholder="Nama kategori"
+                placeholder="Nama Produk"
                 value={katForm.nama}
                 onChange={(e) => setKatForm({ ...katForm, nama: e.target.value })}
                 required
@@ -796,6 +795,7 @@ export default function AturProdukPage() {
               >
                 <option value="pemasukan">Pemasukan</option>
                 <option value="pengeluaran">Pengeluaran</option>
+                <option value="produk">Produk</option>
               </select>
               <label className="inline-flex items-center gap-2">
                 <input
