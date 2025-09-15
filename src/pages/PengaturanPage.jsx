@@ -384,6 +384,27 @@ export default function PengaturanPage() {
     }
   };
 
+  // normalisasi status dari berbagai nama field
+const getInviteStatus = (inv) =>
+  String(inv?.status ?? inv?.invite_status ?? inv?.state ?? "pending").toLowerCase();
+
+const statusBadge = (status) => {
+  const s = status.toLowerCase();
+  const label = s === "accepted" ? "Diterima" : s === "rejected" ? "Ditolak" : s;
+  const cls =
+    s === "accepted"
+      ? "bg-emerald-600"
+      : s === "rejected"
+      ? "bg-rose-600"
+      : "bg-gray-500";
+  return (
+    <span className={`inline-block px-2 py-1 rounded text-white text-xs ${cls}`}>
+      {label}
+    </span>
+  );
+};
+
+
   return (
     <div className="bg-white rounded-xl shadow-md p-6 mb-6">
       <h2 className="text-2xl font-bold mb-6">Pengaturan</h2>
@@ -815,25 +836,36 @@ export default function PengaturanPage() {
                           ? new Date(iv.expires_at).toLocaleString("id-ID")
                           : "-"}
                       </td>
-                      <td className="p-2 flex gap-2">
-                        <button
-                          className={`px-2 py-1 rounded bg-emerald-600 text-white ${
-                            actingId === iv.invite_id ? "opacity-60" : ""
-                          }`}
-                          onClick={() => doAccept(iv)}
-                          disabled={actingId === iv.invite_id}
-                        >
-                          {actingId === iv.invite_id ? "Memproses…" : "Terima"}
-                        </button>
-                        <button
-                          className={`px-2 py-1 rounded bg-rose-600 text-white ${
-                            actingId === iv.invite_id ? "opacity-60" : ""
-                          }`}
-                          onClick={() => doReject(iv)}
-                          disabled={actingId === iv.invite_id}
-                        >
-                          {actingId === iv.invite_id ? "Memproses…" : "Tolak"}
-                        </button>
+                      <td className="p-2">
+                        {(() => {
+                          const st = getInviteStatus(iv);
+                          if (st === "pending") {
+                            return (
+                              <div className="flex gap-2">
+                                <button
+                                  className={`px-2 py-1 rounded bg-emerald-600 text-white ${
+                                    actingId === iv.invite_id ? "opacity-60" : ""
+                                  }`}
+                                  onClick={() => doAccept(iv)}
+                                  disabled={actingId === iv.invite_id}
+                                >
+                                  {actingId === iv.invite_id ? "Memproses…" : "Terima"}
+                                </button>
+                                <button
+                                  className={`px-2 py-1 rounded bg-rose-600 text-white ${
+                                    actingId === iv.invite_id ? "opacity-60" : ""
+                                  }`}
+                                  onClick={() => doReject(iv)}
+                                  disabled={actingId === iv.invite_id}
+                                >
+                                  {actingId === iv.invite_id ? "Memproses…" : "Tolak"}
+                                </button>
+                              </div>
+                            );
+                          }
+                          // jika sudah accepted/rejected → tampilkan badge status
+                          return statusBadge(st);
+                        })()}
                       </td>
                     </tr>
                   ))}
