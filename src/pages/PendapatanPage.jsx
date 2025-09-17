@@ -13,6 +13,21 @@ import { listKategoriScopev2 } from "../services/kategoriService";
 import { getCurrentUser } from "../lib/auth";
 import "../styles/pendapatan.css";
 
+// Toastr
+import toastr from "toastr";
+import "toastr/build/toastr.min.css";
+
+// set opsi global (sekali)
+toastr.options = {
+  positionClass: "toast-top-right",
+  closeButton: true,
+  progressBar: true,
+  timeOut: 2200,
+  extendedTimeOut: 1500,
+  newestOnTop: true,
+  preventDuplicates: true,
+};
+
 export default function PendapatanPage() {
   const token = localStorage.getItem("token");
   const me = getCurrentUser() || {};
@@ -53,7 +68,8 @@ export default function PendapatanPage() {
 
   // ====== helpers ======
   function getScopeParams(extra = {}) {
-    let user_id = null, klaster_id = null;
+    let user_id = null,
+      klaster_id = null;
     try {
       const raw = localStorage.getItem("user");
       if (raw) {
@@ -91,6 +107,7 @@ export default function PendapatanPage() {
     } catch (err) {
       console.error("Gagal ambil pendapatan:", err);
       setPendapatan([]);
+      toastr.error("Gagal memuat riwayat pendapatan.", "Gagal");
     }
   }
 
@@ -124,6 +141,7 @@ export default function PendapatanPage() {
     } catch (err) {
       console.error("Gagal ambil produk/kategori:", err);
       setProdukPemasukan([]);
+      toastr.error("Gagal memuat produk/kategori.", "Gagal");
     }
   }
 
@@ -135,6 +153,7 @@ export default function PendapatanPage() {
     } catch (err) {
       console.error("Gagal ambil akun kas:", err);
       setAkunKas([]);
+      toastr.error("Gagal memuat akun kas.", "Gagal");
     }
   }
 
@@ -171,14 +190,32 @@ export default function PendapatanPage() {
   async function submitLaporan(e) {
     e.preventDefault();
 
-    if (!form.akun_id) return alert("Pilih Akun Kas dulu.");
-    if (!form.tanggal) return alert("Isi tanggal dulu.");
-    if (items.length === 0) return alert("Tambahkan minimal 1 produk.");
+    // validasi → pakai toastr.warning
+    if (!form.akun_id) {
+      toastr.warning("Pilih Akun Kas dulu.", "Perhatian");
+      return;
+    }
+    if (!form.tanggal) {
+      toastr.warning("Isi tanggal dulu.", "Perhatian");
+      return;
+    }
+    if (items.length === 0) {
+      toastr.warning("Tambahkan minimal 1 produk.", "Perhatian");
+      return;
+    }
     for (const r of items) {
-      if (!r.produk_id) return alert("Ada baris tanpa produk yang dipilih.");
-      if (!r.qty || r.qty <= 0) return alert("Qty setiap baris harus > 0.");
-      if (!r.harga_satuan || r.harga_satuan <= 0)
-        return alert("Harga satuan setiap baris harus > 0.");
+      if (!r.produk_id) {
+        toastr.warning("Ada baris tanpa produk yang dipilih.", "Perhatian");
+        return;
+      }
+      if (!r.qty || r.qty <= 0) {
+        toastr.warning("Qty setiap baris harus > 0.", "Perhatian");
+        return;
+      }
+      if (!r.harga_satuan || r.harga_satuan <= 0) {
+        toastr.warning("Harga satuan setiap baris harus > 0.", "Perhatian");
+        return;
+      }
     }
 
     const details = items.map((r) => ({
@@ -187,6 +224,14 @@ export default function PendapatanPage() {
       harga_satuan: Number(r.harga_satuan),
       subtotal: subtot(r),
     }));
+
+    // toast pending
+    const pendingToast = toastr.info(editingId ? "Menyimpan perubahan…" : "Menyimpan…", "", {
+      timeOut: 0,
+      extendedTimeOut: 0,
+      tapToDismiss: false,
+      closeButton: true,
+    });
 
     try {
       if (editingId) {
@@ -213,6 +258,9 @@ export default function PendapatanPage() {
         });
       }
 
+      toastr.clear(pendingToast);
+      toastr.success("Pendapatan berhasil disimpan.", "Berhasil");
+
       setForm({ akun_id: 0, deskripsi: "", tanggal: "", share_to_klaster: false });
       setItems([{ produk_id: 0, qty: 1, harga_satuan: 0 }]);
       setHargaDisplay([""]);
@@ -222,7 +270,11 @@ export default function PendapatanPage() {
       loadInitialData();
     } catch (err) {
       console.error("Gagal simpan pendapatan:", err);
-      alert(err?.response?.data?.message || "Gagal menyimpan pendapatan");
+      toastr.clear(pendingToast);
+      toastr.error(
+        err?.response?.data?.message || "Gagal menyimpan pendapatan.",
+        "Gagal"
+      );
     }
   }
 
@@ -266,6 +318,7 @@ export default function PendapatanPage() {
       }
     } catch (e) {
       console.error("Gagal ambil detail laporan:", e);
+      toastr.error("Gagal memuat detail laporan.", "Gagal");
       setForm({
         akun_id: Number(row.akun_id) || 0,
         deskripsi: row.deskripsi || "",
@@ -289,14 +342,27 @@ export default function PendapatanPage() {
     ) {
       return;
     }
+
+    const pendingToast = toastr.info("Menghapus…", "", {
+      timeOut: 0,
+      extendedTimeOut: 0,
+      tapToDismiss: false,
+      closeButton: true,
+    });
+
     try {
       setDeletingId(row.id_laporan);
       await deletePendapatan(token, row.id_laporan);
-      alert("Berhasil hapus pendapatan.");
+      toastr.clear(pendingToast);
+      toastr.success("Pendapatan berhasil dihapus.", "Berhasil");
       await loadInitialData();
     } catch (err) {
       console.error("Gagal hapus pendapatan:", err);
-      alert(err?.response?.data?.message || "Gagal menghapus pendapatan");
+      toastr.clear(pendingToast);
+      toastr.error(
+        err?.response?.data?.message || "Gagal menghapus pendapatan.",
+        "Gagal"
+      );
     } finally {
       setDeletingId(null);
     }
@@ -307,7 +373,10 @@ export default function PendapatanPage() {
       await navigator.clipboard.writeText(editingId);
       setCopied(true);
       setTimeout(() => setCopied(false), 1200);
-    } catch {}
+      toastr.success("ID laporan disalin ke clipboard.", "Tersalin");
+    } catch {
+      toastr.error("Gagal menyalin ID.", "Gagal");
+    }
   };
 
   // ====== derived ======
@@ -359,7 +428,12 @@ export default function PendapatanPage() {
               className="bg-green-600 text-white px-3 py-2 md:px-4 md:py-2 rounded text-sm md:text-base"
               onClick={() => {
                 setEditingId(null);
-                setForm({ akun_id: 0, deskripsi: "", tanggal: "", share_to_klaster: false });
+                setForm({
+                  akun_id: 0,
+                  deskripsi: "",
+                  tanggal: "",
+                  share_to_klaster: false,
+                });
                 setItems([{ produk_id: 0, qty: 1, harga_satuan: 0 }]);
                 setHargaDisplay([""]);
                 setShowModal(true);
@@ -374,7 +448,9 @@ export default function PendapatanPage() {
       {/* Transaksi Terakhir */}
       {transaksiTerakhir && (
         <div className="bg-white rounded-xl shadow-md p-4 md:p-6 mb-6">
-          <h3 className="text-lg font-semibold mb-4 border-b pb-2">Transaksi Terakhir</h3>
+          <h3 className="text-lg font-semibold mb-4 border-b pb-2">
+            Transaksi Terakhir
+          </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <p className="text-xs md:text-sm text-gray-500">Tanggal</p>
@@ -405,7 +481,9 @@ export default function PendapatanPage() {
             </div>
             <div>
               <p className="text-xs md:text-sm text-gray-500">Share</p>
-              <p className="font-medium">{isShared(transaksiTerakhir) ? "Klaster" : "Pribadi"}</p>
+              <p className="font-medium">
+                {isShared(transaksiTerakhir) ? "Klaster" : "Pribadi"}
+              </p>
             </div>
           </div>
         </div>
@@ -419,7 +497,7 @@ export default function PendapatanPage() {
           <div className="text-center text-gray-500 py-6">Tidak ada data.</div>
         ) : (
           <div className="space-y-3">
-            {pendapatanFiltered.map((item, i) => (
+            {pendapatanFiltered.map((item) => (
               <div key={item.id_laporan} className="rounded-lg border p-4">
                 <div className="flex justify-between items-start gap-3">
                   <div>
@@ -446,7 +524,9 @@ export default function PendapatanPage() {
                     </button>
                     <button
                       className={`px-2 py-1 rounded bg-rose-600 text-white text-sm ${
-                        deletingId === item.id_laporan ? "opacity-60 cursor-not-allowed" : ""
+                        deletingId === item.id_laporan
+                          ? "opacity-60 cursor-not-allowed"
+                          : ""
                       }`}
                       onClick={() => onDelete(item)}
                       disabled={deletingId === item.id_laporan}
@@ -480,20 +560,29 @@ export default function PendapatanPage() {
               {pendapatanFiltered.map((item, i) => (
                 <tr key={item.id_laporan} className="border-t">
                   <td className="p-2">{i + 1}</td>
-                  <td className="p-2">Rp {item.debit?.toLocaleString("id-ID")}</td>
+                  <td className="p-2">
+                    Rp {item.debit?.toLocaleString("id-ID")}
+                  </td>
                   <td className="p-2">{item.deskripsi || "-"}</td>
                   <td className="p-2">
                     {new Date(item.tanggal).toLocaleDateString("id-ID")}
                   </td>
-                  <td className="p-2">{isShared(item) ? "Klaster" : "Pribadi"}</td>
+                  <td className="p-2">
+                    {isShared(item) ? "Klaster" : "Pribadi"}
+                  </td>
                   <td className="p-2">
                     <div className="flex gap-2">
-                      <button className="px-2 py-1 rounded bg-amber-500 text-white" onClick={() => onEdit(item)}>
+                      <button
+                        className="px-2 py-1 rounded bg-amber-500 text-white"
+                        onClick={() => onEdit(item)}
+                      >
                         Edit
                       </button>
                       <button
                         className={`px-2 py-1 rounded bg-rose-600 text-white ${
-                          deletingId === item.id_laporan ? "opacity-60 cursor-not-allowed" : ""
+                          deletingId === item.id_laporan
+                            ? "opacity-60 cursor-not-allowed"
+                            : ""
                         }`}
                         onClick={() => onDelete(item)}
                         disabled={deletingId === item.id_laporan}
@@ -544,7 +633,9 @@ export default function PendapatanPage() {
               {/* Akun Kas */}
               <select
                 value={form.akun_id}
-                onChange={(e) => setForm({ ...form, akun_id: Number(e.target.value) })}
+                onChange={(e) =>
+                  setForm({ ...form, akun_id: Number(e.target.value) })
+                }
                 className="block w-full border rounded px-3 py-2"
                 required
               >
@@ -563,7 +654,11 @@ export default function PendapatanPage() {
               <div className="border rounded p-3">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-2">
                   <div className="font-semibold">Item Produk</div>
-                  <button type="button" className="px-2 py-1 rounded bg-emerald-600 text-white text-sm md:text-base" onClick={addRow}>
+                  <button
+                    type="button"
+                    className="px-2 py-1 rounded bg-emerald-600 text-white text-sm md:text-base"
+                    onClick={addRow}
+                  >
                     + Tambah Baris
                   </button>
                 </div>
@@ -610,7 +705,9 @@ export default function PendapatanPage() {
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-gray-500">Harga Satuan (Rp)</label>
+                          <label className="text-xs text-gray-500">
+                            Harga Satuan (Rp)
+                          </label>
                           <input
                             type="text"
                             className="w-full border rounded px-3 py-2"
@@ -693,7 +790,9 @@ export default function PendapatanPage() {
                 <input
                   type="checkbox"
                   checked={form.share_to_klaster}
-                  onChange={(e) => setForm({ ...form, share_to_klaster: e.target.checked })}
+                  onChange={(e) =>
+                    setForm({ ...form, share_to_klaster: e.target.checked })
+                  }
                 />
                 Bagikan ke klaster
               </label>
@@ -713,7 +812,8 @@ export default function PendapatanPage() {
                   )}
                 </div>
                 <div className="font-semibold">
-                  Total: <span className="text-green-700">{formatRupiah(total)}</span>
+                  Total:{" "}
+                  <span className="text-green-700">{formatRupiah(total)}</span>
                 </div>
               </div>
 
@@ -721,7 +821,9 @@ export default function PendapatanPage() {
                 className="border rounded px-3 py-2"
                 placeholder="Deskripsi pendapatan..."
                 value={form.deskripsi}
-                onChange={(e) => setForm({ ...form, deskripsi: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, deskripsi: e.target.value })
+                }
               />
 
               <input

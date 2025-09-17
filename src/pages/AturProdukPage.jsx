@@ -978,6 +978,7 @@ export default function AturProdukPage() {
               >
                 <option value="pemasukan">Pemasukan</option>
                 <option value="pengeluaran">Pengeluaran</option>
+                <option value="pengeluaran">modal</option>
               </select>
               <label className="inline-flex items-center gap-2">
                 <input
