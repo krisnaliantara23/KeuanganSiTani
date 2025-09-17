@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { FaUser, FaLock } from "react-icons/fa";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import toastr from "toastr"; // DITAMBAHKAN: import toastr
 import IconLogo from "../assets/IconLogo.png";
 import PertanianKentang from "../assets/PertanianKentang3.jpg";
 import { bootstrapProduct } from "../services/productService";
@@ -10,7 +11,7 @@ import { bootstrapProduct } from "../services/productService";
 export default function RegisterPage() {
   const navigate = useNavigate();
   const [error, setError] = useState("");
-  const [status, setStatus] = useState(""); // Untuk pesan status selama proses
+  const [success, setSuccess] = useState(""); // Diubah dari status ke success agar lebih jelas
   const [isLoading, setIsLoading] = useState(false);
 
   const [form, setForm] = useState({
@@ -20,13 +21,13 @@ export default function RegisterPage() {
     password: "",
     konfirmasiPassword: "",
     setuju: false,
-    bootstrap: true,     // buat produk awal otomatis
-    role: "user",        // ✅ tambahkan role (user/admin)
+    bootstrap: true,
+    role: "user",
   });
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    if (name === "telepon" && !/^\d*$/.test(value)) return; // hanya angka
+    if (name === "telepon" && !/^\d*$/.test(value)) return;
     setForm((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
@@ -36,39 +37,47 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    setStatus("");
+    setSuccess("");
     setIsLoading(true);
 
+    // Validasi
     if (!form.nama || !form.email || !form.telepon || !form.password || !form.konfirmasiPassword) {
       setError("Semua field wajib diisi!");
+      toastr.error("Semua field wajib diisi!"); // UPDATE: toastr ditambahkan
+      setIsLoading(false);
       return;
     }
     if (form.telepon.length < 10) {
       setError("Nomor telepon minimal 10 digit!");
+      toastr.error("Nomor telepon minimal 10 digit!"); // UPDATE: toastr ditambahkan
+      setIsLoading(false);
       return;
     }
     if (form.password !== form.konfirmasiPassword) {
       setError("Konfirmasi password tidak cocok!");
+      toastr.error("Konfirmasi password tidak cocok!"); // UPDATE: toastr ditambahkan
       setIsLoading(false);
       return;
     }
     if (!form.setuju) {
       setError("Anda harus menyetujui Syarat dan Ketentuan.");
+      toastr.error("Anda harus menyetujui Syarat dan Ketentuan."); // UPDATE: toastr ditambahkan
       setIsLoading(false);
       return;
     }
 
     try {
-      // 1. Registrasi
-      setStatus("Mendaftarkan akun Anda...");
-      await axios.post(
+      setSuccess("Mendaftarkan akun Anda...");
+      toastr.info("Mendaftarkan akun Anda..."); // UPDATE: toastr ditambahkan
+
+      const res = await axios.post(
         "https://be-laporankeuangan.up.railway.app/api/auth/register",
         {
           nama: form.nama,
           email: form.email,
           nomor_telepon: form.telepon,
           password: form.password,
-          role: form.role, // ✅ kirim role yang dipilih
+          role: form.role,
         },
         { headers: { "Content-Type": "application/json" } }
       );
@@ -77,10 +86,13 @@ export default function RegisterPage() {
       if (form.bootstrap && token) {
         const prevToken = localStorage.getItem("token");
         try {
+          setSuccess("Membuat data awal...");
+          toastr.info("Membuat data awal..."); // UPDATE: toastr ditambahkan
           localStorage.setItem("token", token);
-          await bootstrapProduct(); // panggil bootstrap defaults
+          await bootstrapProduct();
         } catch (bootErr) {
           console.warn("Bootstrap defaults gagal (akan lanjut):", bootErr);
+          toastr.warning("Gagal membuat data awal, namun registrasi berhasil."); // UPDATE: toastr ditambahkan
         } finally {
           if (prevToken) localStorage.setItem("token", prevToken);
           else localStorage.removeItem("token");
@@ -88,7 +100,9 @@ export default function RegisterPage() {
       }
 
       setSuccess("Pendaftaran berhasil! Anda akan diarahkan ke halaman login.");
-      setTimeout(() => navigate("/login"), 1500);
+      toastr.success("Pendaftaran berhasil! Anda akan diarahkan ke halaman login."); // UPDATE: toastr ditambahkan
+      setTimeout(() => navigate("/login"), 2000); // Diperpanjang sedikit untuk toastr
+
     } catch (err) {
       console.error("Proses registrasi gagal:", err.response || err.message);
       const message =
@@ -96,6 +110,7 @@ export default function RegisterPage() {
         err.response?.data?.error ||
         "Pendaftaran gagal, silakan coba lagi.";
       setError(message);
+      toastr.error(message); // UPDATE: toastr ditambahkan
       setIsLoading(false);
     }
   };
@@ -119,18 +134,20 @@ export default function RegisterPage() {
           Mulai kelola keuangan pertanian Anda secara praktis dan aman.
         </p>
 
+        {/* Notifikasi Lama (tetap ada sesuai permintaan) */}
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-full mb-4 text-center">
             {error}
           </div>
         )}
-        {status && (
+        {success && (
           <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-full mb-4 text-center">
-            {status}
+            {success}
           </div>
         )}
 
         <form className="space-y-4" onSubmit={handleSubmit}>
+          {/* ... form fields ... */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
             <div className="flex items-center border border-gray-300 rounded-full px-4 py-2">
@@ -216,7 +233,6 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* ✅ Pilih Role */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
             <select
@@ -224,17 +240,16 @@ export default function RegisterPage() {
               value={form.role}
               onChange={handleChange}
               className="w-full border border-gray-300 rounded-full px-4 py-2 bg-white"
+              disabled={isLoading}
             >
               <option value="user">User</option>
               <option value="admin">Admin</option>
             </select>
-            {/* Opsional: beri info kecil */}
             <p className="text-xs text-gray-500 mt-1">
               Pilih <b>Admin</b> jika akun ini akan mengelola klaster/anggota.
             </p>
           </div>
 
-          {/* Checkbox T&C */}
           <div className="flex items-center text-sm text-gray-600">
             <label className="flex items-center">
               <input
@@ -252,7 +267,6 @@ export default function RegisterPage() {
             </label>
           </div>
 
-          {/* ✅ Checkbox Bootstrap Produk Default */}
           <div className="flex items-center text-sm text-gray-600">
             <label className="flex items-center">
               <input
@@ -261,18 +275,18 @@ export default function RegisterPage() {
                 checked={form.bootstrap}
                 onChange={handleChange}
                 className="mr-2"
+                disabled={isLoading}
               />
               Buat produk awal otomatis
             </label>
           </div>
 
-          {/* Tombol */}
           <button
             type="submit"
             className="w-full bg-[#004030] text-white py-3 rounded-full hover:bg-[#3e826f] transition font-semibold disabled:bg-gray-400"
             disabled={isLoading}
           >
-            {isLoading ? status : "Daftar Sekarang"}
+            {isLoading ? "Memproses..." : "Daftar Sekarang"}
           </button>
         </form>
 
