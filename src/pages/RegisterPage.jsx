@@ -1,41 +1,11 @@
+// src/pages/RegisterPage.jsx
 import React, { useState } from "react";
 import { FaUser, FaLock } from "react-icons/fa";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import IconLogo from "../assets/IconLogo.png";
 import PertanianKentang from "../assets/PertanianKentang3.jpg";
-import { createKategori } from "../services/kategoriService";
-import { createProduct } from "../services/productService";
-
-// Data default untuk kentang
-const defaultData = [
-  {
-    kategori: { nama: "Bibit", jenis: "pengeluaran" },
-    produk: [{ nama: "Bibit Kentang Granola", satuan: "kg" }],
-  },
-  {
-    kategori: { nama: "Pupuk", jenis: "pengeluaran" },
-    produk: [
-      { nama: "Pupuk NPK", satuan: "kg" },
-      { nama: "Pupuk Kandang", satuan: "kg" },
-    ],
-  },
-  {
-    kategori: { nama: "Pestisida", jenis: "pengeluaran" },
-    produk: [
-      { nama: "Insektisida", satuan: "liter" },
-      { nama: "Fungisida", satuan: "liter" },
-    ],
-  },
-  {
-    kategori: { nama: "Peralatan", jenis: "pengeluaran" },
-    produk: [{ nama: "Cangkul", satuan: "unit" }],
-  },
-  {
-    kategori: { nama: "Hasil Panen", jenis: "pemasukan" },
-    produk: [{ nama: "Kentang Granola", satuan: "kg" }],
-  },
-];
+import { bootstrapProduct } from "../services/productService";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -50,38 +20,17 @@ export default function RegisterPage() {
     password: "",
     konfirmasiPassword: "",
     setuju: false,
+    bootstrap: true,     // buat produk awal otomatis
+    role: "user",        // ✅ tambahkan role (user/admin)
   });
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    if (name === "telepon" && !/^\d*$/.test(value)) return;
-    setForm({
-      ...form,
+    if (name === "telepon" && !/^\d*$/.test(value)) return; // hanya angka
+    setForm((prev) => ({
+      ...prev,
       [name]: type === "checkbox" ? checked : value,
-    });
-  };
-
-  // Fungsi untuk membuat data default
-  const setupInitialData = async () => {
-    try {
-      setStatus("Membuat kategori default...");
-      for (const item of defaultData) {
-        // Buat kategori
-        const kategoriRes = await createKategori(item.kategori);
-        const kategoriId = kategoriRes.data.id;
-
-        // Buat produk untuk kategori ini
-        for (const prod of item.produk) {
-          await createProduct({
-            ...prod,
-            kategori_id: kategoriId,
-          });
-        }
-      }
-    } catch (err) {
-      console.error("Gagal membuat data default:", err);
-      throw new Error("Gagal menyiapkan data awal untuk akun Anda.");
-    }
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -90,10 +39,12 @@ export default function RegisterPage() {
     setStatus("");
     setIsLoading(true);
 
-    // Validasi
     if (!form.nama || !form.email || !form.telepon || !form.password || !form.konfirmasiPassword) {
       setError("Semua field wajib diisi!");
-      setIsLoading(false);
+      return;
+    }
+    if (form.telepon.length < 10) {
+      setError("Nomor telepon minimal 10 digit!");
       return;
     }
     if (form.password !== form.konfirmasiPassword) {
@@ -117,30 +68,27 @@ export default function RegisterPage() {
           email: form.email,
           nomor_telepon: form.telepon,
           password: form.password,
-          role: "user",
-        }
+          role: form.role, // ✅ kirim role yang dipilih
+        },
+        { headers: { "Content-Type": "application/json" } }
       );
 
-      // 2. Login otomatis untuk mendapatkan token
-      setStatus("Pendaftaran berhasil. Melakukan login...");
-      const loginRes = await axios.post(
-        "https://be-laporankeuangan.up.railway.app/api/auth/login",
-        {
-          identifier: form.email,
-          password: form.password,
+      const token = res?.data?.token;
+      if (form.bootstrap && token) {
+        const prevToken = localStorage.getItem("token");
+        try {
+          localStorage.setItem("token", token);
+          await bootstrapProduct(); // panggil bootstrap defaults
+        } catch (bootErr) {
+          console.warn("Bootstrap defaults gagal (akan lanjut):", bootErr);
+        } finally {
+          if (prevToken) localStorage.setItem("token", prevToken);
+          else localStorage.removeItem("token");
         }
-      );
+      }
 
-      localStorage.setItem("token", loginRes.data.token);
-      localStorage.setItem("user", JSON.stringify(loginRes.data.user));
-
-      // 3. Membuat data default
-      setStatus("Menyiapkan data awal untuk akun Anda...");
-      await setupInitialData();
-
-      // 4. Selesai dan arahkan
-      setStatus("Akun Anda telah siap! Mengarahkan ke Beranda...");
-      setTimeout(() => navigate("/beranda"), 2000);
+      setSuccess("Pendaftaran berhasil! Anda akan diarahkan ke halaman login.");
+      setTimeout(() => navigate("/login"), 1500);
     } catch (err) {
       console.error("Proses registrasi gagal:", err.response || err.message);
       const message =
@@ -154,27 +102,19 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex">
+      {/* Kiri */}
       <div className="hidden md:flex w-1/2">
-        <img
-          src={PertanianKentang}
-          alt="Pertanian Kentang"
-          className="w-full h-full object-cover"
-        />
+        <img src={PertanianKentang} alt="Pertanian Kentang" className="w-full h-full object-cover" />
       </div>
 
+      {/* Kanan */}
       <div className="flex flex-col justify-center w-full md:w-1/2 px-8 md:px-16 bg-white">
         <div className="flex items-center justify-center mb-6">
-          <img
-            src={IconLogo}
-            alt="Logo"
-            className="w-10 h-10 object-contain mr-2"
-          />
+          <img src={IconLogo} alt="Logo" className="w-10 h-10 object-contain mr-2" />
           <span className="text-2xl font-bold text-[#004030]">SiTani</span>
         </div>
 
-        <h2 className="text-4xl font-bold text-[#004030] mb-2 text-center">
-          Daftar Akun Baru
-        </h2>
+        <h2 className="text-4xl font-bold text-[#004030] mb-2 text-center">Daftar Akun Baru</h2>
         <p className="text-lg font-semibold text-[#004030] mb-6 text-center">
           Mulai kelola keuangan pertanian Anda secara praktis dan aman.
         </p>
@@ -192,9 +132,7 @@ export default function RegisterPage() {
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nama Lengkap
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
             <div className="flex items-center border border-gray-300 rounded-full px-4 py-2">
               <FaUser className="text-gray-400 mr-2" />
               <input
@@ -211,9 +149,7 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Alamat Email
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Alamat Email</label>
             <div className="flex items-center border border-gray-300 rounded-full px-4 py-2">
               <FaUser className="text-gray-400 mr-2" />
               <input
@@ -230,9 +166,7 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nomor Telepon
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nomor Telepon</label>
             <div className="flex items-center border border-gray-300 rounded-full px-4 py-2">
               <FaUser className="text-gray-400 mr-2" />
               <input
@@ -249,9 +183,7 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Kata Sandi
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Kata Sandi</label>
             <div className="flex items-center border border-gray-300 rounded-full px-4 py-2">
               <FaLock className="text-gray-400 mr-2" />
               <input
@@ -268,9 +200,7 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Konfirmasi Kata Sandi
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Konfirmasi Kata Sandi</label>
             <div className="flex items-center border border-gray-300 rounded-full px-4 py-2">
               <FaLock className="text-gray-400 mr-2" />
               <input
@@ -286,6 +216,25 @@ export default function RegisterPage() {
             </div>
           </div>
 
+          {/* ✅ Pilih Role */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+            <select
+              name="role"
+              value={form.role}
+              onChange={handleChange}
+              className="w-full border border-gray-300 rounded-full px-4 py-2 bg-white"
+            >
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+            {/* Opsional: beri info kecil */}
+            <p className="text-xs text-gray-500 mt-1">
+              Pilih <b>Admin</b> jika akun ini akan mengelola klaster/anggota.
+            </p>
+          </div>
+
+          {/* Checkbox T&C */}
           <div className="flex items-center text-sm text-gray-600">
             <label className="flex items-center">
               <input
@@ -297,15 +246,27 @@ export default function RegisterPage() {
                 disabled={isLoading}
               />
               Saya setuju dengan{" "}
-              <Link
-                to="/syarat-dan-ketentuan"
-                className="text-[#004030] hover:underline ml-1"
-              >
+              <Link to="/syarat-dan-ketentuan" className="text-[#004030] hover:underline ml-1">
                 Syarat dan Ketentuan
               </Link>
             </label>
           </div>
 
+          {/* ✅ Checkbox Bootstrap Produk Default */}
+          <div className="flex items-center text-sm text-gray-600">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                name="bootstrap"
+                checked={form.bootstrap}
+                onChange={handleChange}
+                className="mr-2"
+              />
+              Buat produk awal otomatis
+            </label>
+          </div>
+
+          {/* Tombol */}
           <button
             type="submit"
             className="w-full bg-[#004030] text-white py-3 rounded-full hover:bg-[#3e826f] transition font-semibold disabled:bg-gray-400"

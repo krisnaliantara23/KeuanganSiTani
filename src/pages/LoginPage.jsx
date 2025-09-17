@@ -1,3 +1,4 @@
+// src/pages/LoginPage.jsx
 import React, { useState } from "react";
 import { FaUser, FaLock } from "react-icons/fa";
 import { Link, useNavigate } from "react-router-dom";
@@ -5,10 +6,26 @@ import axios from "axios";
 import IconLogo from "../assets/IconLogo.png";
 import PertanianKentang from "../assets/PertanianKentang3.jpg";
 
+// Toastr
+import toastr from "toastr";
+import "toastr/build/toastr.min.css";
+
+// (opsional) set opsi global sekali di sini
+toastr.options = {
+  positionClass: "toast-top-right",
+  closeButton: true,
+  progressBar: true,
+  timeOut: 2200,
+  extendedTimeOut: 1500,
+  newestOnTop: true,
+  preventDuplicates: true,
+};
+
 export default function LoginPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -18,7 +35,21 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
 
+    if (!form.email || !form.password) {
+      toastr.warning("Email dan password wajib diisi.", "Perhatian");
+      return;
+    }
+
+    // toast pending (tanpa timeout)
+    const pendingToast = toastr.info("Memproses…", "", {
+      timeOut: 0,
+      extendedTimeOut: 0,
+      tapToDismiss: false,
+      closeButton: true,
+    });
+
     try {
+      setLoading(true);
       const res = await axios.post(
         "https://be-laporankeuangan.up.railway.app/api/auth/login",
         {
@@ -31,13 +62,23 @@ export default function LoginPage() {
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("user", JSON.stringify(res.data.user));
 
+      // sukses
+      toastr.clear(pendingToast);
+      toastr.success("Login berhasil. Selamat datang!", "Berhasil");
+
       // arahkan ke dashboard
       navigate("/beranda");
     } catch (err) {
-      console.error(err);
+      toastr.clear(pendingToast);
       const msg =
-        err.response?.data?.message || "Login gagal, periksa kembali data Anda.";
+        err?.response?.data?.message ||
+        err?.message ||
+        "Login gagal, periksa kembali data Anda.";
       setError(msg);
+      toastr.error(msg, "Gagal");
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -118,9 +159,12 @@ export default function LoginPage() {
           {/* Tombol */}
           <button
             type="submit"
-            className="w-full bg-[#004030] text-white py-3 rounded-full hover:bg-[#3e826f] transition font-semibold"
+            disabled={loading}
+            className={`w-full bg-[#004030] text-white py-3 rounded-full transition font-semibold ${
+              loading ? "opacity-70 cursor-not-allowed" : "hover:bg-[#3e826f]"
+            }`}
           >
-            Masuk
+            {loading ? "Memproses…" : "Masuk"}
           </button>
         </form>
 
