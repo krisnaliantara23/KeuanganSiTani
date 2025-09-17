@@ -55,6 +55,8 @@ export default function AturProdukPage() {
   const [editAkunId, setEditAkunId] = useState(null);
 
   const [showAddKategori, setShowAddKategori] = useState(false);
+  // filter
+  const [rawKategori, setRawKategori] = useState([])
 
   // ====== form: Produk (create/update) ======
   const [produkForm, setProdukForm] = useState({
@@ -111,7 +113,8 @@ export default function AturProdukPage() {
     loadProducts();
     loadAkunKas();
     loadKategori();
-  }, []);
+    setKategori(applyKategoriFilter(rawKategori))
+  }, [katFilterScope]);
 
   async function loadProducts() {
     try {
@@ -141,7 +144,6 @@ export default function AturProdukPage() {
     }
   }
 
-  // panggil berulang apiFn({...baseParams, page, limit}) sampai habis
   async function fetchAll(apiFn, baseParams = {}, pageSize = 100) {
     let page = 1;
     let all = [];
@@ -172,27 +174,51 @@ export default function AturProdukPage() {
 
       const base = {
         user_id: userId || undefined,
-        klaster_id: klasterId,
+        klaster_id: klasterId || undefined,
         jenis: katFilterJenis || undefined,
         search: katSearch || undefined,
       };
 
-      if (katFilterScope === "own") {
-        base.user_id = localStorage.getItem("user_id") || userId || undefined;
-      } else if (katFilterScope === "klaster") {
-        base.klaster_id = localStorage.getItem("klaster_id") || undefined;
-      }
-
       const list = await fetchAll(listKategoriScope, base, 200);
-      setKategori(list);
+      setRawKategori(list)
+      // console.log("data kategori",list)
+      let filtered = list
+      const norm = (v) => (v === undefined || v === null || v === "" || v === "null" ? null : v);
+      if (katFilterScope === "own")
+        filtered = list.filter((k) => norm(k.klaster_id) == null);
+      else if (katFilterScope === "klaster")
+        filtered = list.filter((k) => norm(k.klaster_id)!= null);
+
+
+      setKategori(applyKategoriFilter(list));
+      console.log(katFilterScope)
+      console.log("data filtered", filtered)
     } catch (e) {
       console.error("Gagal ambil kategori:", e);
+      setRawKategori([]);
       setKategori([]);
     } finally {
       setLoadingKategori(false);
     }
   }
-
+  // Apply filter
+  const normKlaster = (v) => {
+    if (v === null || v === undefined) return null;
+    if (v === '' || v === 'null') return null;
+      return v;
+  }
+  // Apply Kategori Filter
+  const applyKategoriFilter = (list) => {
+    if (katFilterScope === 'own') {
+      // pribadi: klaster_id == null
+      return list.filter((k) => normKlaster(k.klaster_id) === null);
+    }
+    if (katFilterScope === 'klaster') {
+      // klaster: klaster_id != null
+      return list.filter((k) => normKlaster(k.klaster_id) !== null);
+    }
+    return list;
+  };
   // opsi kategori untuk dropdown produk
   async function loadKategoriDropdown() {
     try {
@@ -337,17 +363,19 @@ export default function AturProdukPage() {
   async function submitCreateKategori(e) {
     e.preventDefault();
     try {
-      await createKategori({
+      const base = {
         nama: katForm.nama,
-        jenis: katForm.jenis, // pemasukan | pengeluaran | produk
-        share_klaster: !!katForm.share_klaster
-      });
+        jenis: katForm.jenis,
+        share_klaster: katForm.share_klaster,
+      }
+      await createKategori(base)
       setShowAddKategori(false);
       setKatForm({ nama: "", jenis: "produk", share_klaster: false });
       await loadKategori();
-      await loadKategoriDropdown(); // refresh dropdown produk
+      await loadKategoriDropdown();
     } catch (e2) {
       alert(e2?.response?.data?.message || "Gagal membuat kategori");
+      console.log(e2)
     }
   }
 
@@ -950,7 +978,6 @@ export default function AturProdukPage() {
               >
                 <option value="pemasukan">Pemasukan</option>
                 <option value="pengeluaran">Pengeluaran</option>
-                <option value="produk">Produk</option>
               </select>
               <label className="inline-flex items-center gap-2">
                 <input
