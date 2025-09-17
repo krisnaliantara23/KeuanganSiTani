@@ -4,11 +4,44 @@ import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import IconLogo from "../assets/IconLogo.png";
 import PertanianKentang from "../assets/PertanianKentang3.jpg";
+import { createKategori } from "../services/kategoriService";
+import { createProduct } from "../services/productService";
+
+// Data default untuk kentang
+const defaultData = [
+  {
+    kategori: { nama: "Bibit", jenis: "pengeluaran" },
+    produk: [{ nama: "Bibit Kentang Granola", satuan: "kg" }],
+  },
+  {
+    kategori: { nama: "Pupuk", jenis: "pengeluaran" },
+    produk: [
+      { nama: "Pupuk NPK", satuan: "kg" },
+      { nama: "Pupuk Kandang", satuan: "kg" },
+    ],
+  },
+  {
+    kategori: { nama: "Pestisida", jenis: "pengeluaran" },
+    produk: [
+      { nama: "Insektisida", satuan: "liter" },
+      { nama: "Fungisida", satuan: "liter" },
+    ],
+  },
+  {
+    kategori: { nama: "Peralatan", jenis: "pengeluaran" },
+    produk: [{ nama: "Cangkul", satuan: "unit" }],
+  },
+  {
+    kategori: { nama: "Hasil Panen", jenis: "pemasukan" },
+    produk: [{ nama: "Kentang Granola", satuan: "kg" }],
+  },
+];
 
 export default function RegisterPage() {
   const navigate = useNavigate();
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [status, setStatus] = useState(""); // Untuk pesan status selama proses
+  const [isLoading, setIsLoading] = useState(false);
 
   const [form, setForm] = useState({
     nama: "",
@@ -21,70 +54,106 @@ export default function RegisterPage() {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    if (name === "telepon" && !/^\d*$/.test(value)) return; // hanya angka
+    if (name === "telepon" && !/^\d*$/.test(value)) return;
     setForm({
       ...form,
       [name]: type === "checkbox" ? checked : value,
     });
   };
 
+  // Fungsi untuk membuat data default
+  const setupInitialData = async () => {
+    try {
+      setStatus("Membuat kategori default...");
+      for (const item of defaultData) {
+        // Buat kategori
+        const kategoriRes = await createKategori(item.kategori);
+        const kategoriId = kategoriRes.data.id;
+
+        // Buat produk untuk kategori ini
+        for (const prod of item.produk) {
+          await createProduct({
+            ...prod,
+            kategori_id: kategoriId,
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Gagal membuat data default:", err);
+      throw new Error("Gagal menyiapkan data awal untuk akun Anda.");
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    setSuccess("");
+    setStatus("");
+    setIsLoading(true);
 
-    // Validasi sederhana
+    // Validasi
     if (!form.nama || !form.email || !form.telepon || !form.password || !form.konfirmasiPassword) {
       setError("Semua field wajib diisi!");
+      setIsLoading(false);
       return;
     }
-
-    if (form.telepon.length < 10) {
-      setError("Nomor telepon minimal 10 digit!");
-      return;
-    }
-
     if (form.password !== form.konfirmasiPassword) {
       setError("Konfirmasi password tidak cocok!");
+      setIsLoading(false);
       return;
     }
-
     if (!form.setuju) {
       setError("Anda harus menyetujui Syarat dan Ketentuan.");
+      setIsLoading(false);
       return;
     }
 
     try {
-      const res = await axios.post(
+      // 1. Registrasi
+      setStatus("Mendaftarkan akun Anda...");
+      await axios.post(
         "https://be-laporankeuangan.up.railway.app/api/auth/register",
         {
           nama: form.nama,
           email: form.email,
-          nomor_telepon: form.telepon, // sesuai backend
+          nomor_telepon: form.telepon,
           password: form.password,
           role: "user",
-        },
-        {
-          headers: { "Content-Type": "application/json" },
         }
       );
 
-      console.log("Register response:", res.data);
-      setSuccess("Pendaftaran berhasil! Anda akan diarahkan ke halaman login.");
-      setTimeout(() => navigate("/login"), 2000);
+      // 2. Login otomatis untuk mendapatkan token
+      setStatus("Pendaftaran berhasil. Melakukan login...");
+      const loginRes = await axios.post(
+        "https://be-laporankeuangan.up.railway.app/api/auth/login",
+        {
+          identifier: form.email,
+          password: form.password,
+        }
+      );
+
+      localStorage.setItem("token", loginRes.data.token);
+      localStorage.setItem("user", JSON.stringify(loginRes.data.user));
+
+      // 3. Membuat data default
+      setStatus("Menyiapkan data awal untuk akun Anda...");
+      await setupInitialData();
+
+      // 4. Selesai dan arahkan
+      setStatus("Akun Anda telah siap! Mengarahkan ke Beranda...");
+      setTimeout(() => navigate("/beranda"), 2000);
     } catch (err) {
-      console.error("Register error:", err.response || err.message);
+      console.error("Proses registrasi gagal:", err.response || err.message);
       const message =
         err.response?.data?.message ||
         err.response?.data?.error ||
         "Pendaftaran gagal, silakan coba lagi.";
       setError(message);
+      setIsLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen flex">
-      {/* Bagian kiri */}
       <div className="hidden md:flex w-1/2">
         <img
           src={PertanianKentang}
@@ -93,9 +162,7 @@ export default function RegisterPage() {
         />
       </div>
 
-      {/* Bagian kanan */}
       <div className="flex flex-col justify-center w-full md:w-1/2 px-8 md:px-16 bg-white">
-        {/* Logo */}
         <div className="flex items-center justify-center mb-6">
           <img
             src={IconLogo}
@@ -117,14 +184,13 @@ export default function RegisterPage() {
             {error}
           </div>
         )}
-        {success && (
+        {status && (
           <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-full mb-4 text-center">
-            {success}
+            {status}
           </div>
         )}
 
         <form className="space-y-4" onSubmit={handleSubmit}>
-          {/* Nama */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Nama Lengkap
@@ -139,11 +205,11 @@ export default function RegisterPage() {
                 placeholder="Masukkan nama lengkap Anda"
                 className="flex-1 outline-none bg-transparent"
                 required
+                disabled={isLoading}
               />
             </div>
           </div>
 
-          {/* Email */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Alamat Email
@@ -158,11 +224,11 @@ export default function RegisterPage() {
                 placeholder="Masukkan alamat email Anda"
                 className="flex-1 outline-none bg-transparent"
                 required
+                disabled={isLoading}
               />
             </div>
           </div>
 
-          {/* Telepon */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Nomor Telepon
@@ -177,11 +243,11 @@ export default function RegisterPage() {
                 placeholder="Masukkan nomor telepon Anda"
                 className="flex-1 outline-none bg-transparent"
                 required
+                disabled={isLoading}
               />
             </div>
           </div>
 
-          {/* Password */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Kata Sandi
@@ -196,11 +262,11 @@ export default function RegisterPage() {
                 placeholder="Masukkan kata sandi Anda"
                 className="flex-1 outline-none bg-transparent"
                 required
+                disabled={isLoading}
               />
             </div>
           </div>
 
-          {/* Konfirmasi Password */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Konfirmasi Kata Sandi
@@ -215,11 +281,11 @@ export default function RegisterPage() {
                 placeholder="Konfirmasi kata sandi Anda"
                 className="flex-1 outline-none bg-transparent"
                 required
+                disabled={isLoading}
               />
             </div>
           </div>
 
-          {/* Checkbox */}
           <div className="flex items-center text-sm text-gray-600">
             <label className="flex items-center">
               <input
@@ -228,6 +294,7 @@ export default function RegisterPage() {
                 checked={form.setuju}
                 onChange={handleChange}
                 className="mr-2"
+                disabled={isLoading}
               />
               Saya setuju dengan{" "}
               <Link
@@ -239,12 +306,12 @@ export default function RegisterPage() {
             </label>
           </div>
 
-          {/* Tombol */}
           <button
             type="submit"
-            className="w-full bg-[#004030] text-white py-3 rounded-full hover:bg-[#3e826f] transition font-semibold"
+            className="w-full bg-[#004030] text-white py-3 rounded-full hover:bg-[#3e826f] transition font-semibold disabled:bg-gray-400"
+            disabled={isLoading}
           >
-            Daftar Sekarang
+            {isLoading ? status : "Daftar Sekarang"}
           </button>
         </form>
 
