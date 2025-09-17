@@ -45,15 +45,18 @@
   @apply max-w-2xl mb-6 text-lg mx-auto;
 }
 .hero-buttons {
-  @apply space-x-4;
+  @apply flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4;
 }
 .primary-btn {
-  @apply bg-[#004030] text-white px-8 py-3 rounded-lg text-lg hover:bg-[#3b7a67] transition;
+  @apply bg-[#004030] px-12 py-3 rounded-lg text-lg hover:bg-gray-600 transition text-white;
 }
 .secondary-btn {
-  @apply bg-[#004030] px-8 py-3 rounded-lg text-lg hover:bg-gray-600 transition text-white;
+  @apply bg-white text-[#004030] px-8 py-3 rounded-lg text-lg hover:bg-gray-400;
 }
 
+/* .secondary-btn {
+  @apply bg-[#004030] px-8 py-3 rounded-lg text-lg hover:bg-gray-600 transition text-white;
+} */
 /* Scroll Button */
 .scroll-btn {
   @apply absolute bottom-6 left-1/2 transform -translate-x-1/2 text-white animate-bounce;

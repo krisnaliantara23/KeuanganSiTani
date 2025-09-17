@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import IconLogo from "../assets/IconLogo.png";
 import Footer from "../component/Footer";
-import Sidebar from "../component/Sidebar"; // pastikan Sidebar sudah ada
+import Layout from "../component/Layout"; // Impor Layout
 
 export default function PanduanPage() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -183,59 +183,59 @@ export default function PanduanPage() {
     }
   };
 
-  return (
-    <div className="flex min-h-screen bg-gray-50">
-      {/* Sidebar hanya jika login */}
-      {isLoggedIn && <Sidebar />}
-
-      <div className="flex flex-col flex-1">
-        {/* Header hanya muncul jika belum login */}
-        {!isLoggedIn && (
-          <header className="w-full flex justify-between items-center p-4 bg-white shadow-md sticky top-0 z-50">
-            <div className="flex items-center space-x-2">
-              <img src={IconLogo} alt="Logo" className="h-8 w-8" />
-              <span className="text-xl font-bold text-[#004030]">
-                SiTani - Panduan
-              </span>
-            </div>
-            <div className="space-x-4">
-              <Link to="/" className="text-[#004030] font-medium hover:underline">
-                Kembali ke Beranda
-              </Link>
-              <Link
-                to="/login"
-                className="bg-[#004030] text-white px-4 py-2 rounded-lg hover:bg-[#3b7a67]"
-              >
-                Masuk
-              </Link>
-            </div>
-          </header>
-        )}
-
-        {/* Konten utama */}
-        <main className="flex-1 p-6 max-w-4xl mx-auto w-full">
-          <div className="flex flex-wrap gap-2 mb-6">
-            {guideTabs.map((tab) => (
-              <button
-                key={tab.id}
-                className={`px-4 py-2 rounded-full ${
-                  activeTab === tab.id
-                    ? "bg-green-100 text-green-700 font-bold"
-                    : "bg-gray-200 text-gray-700"
-                }`}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {renderContent()}
-        </main>
-
-        {/* Footer */}
-        <Footer />
+  // Konten utama yang akan dibungkus oleh Layout jika login
+  const mainContent = (
+    <main className="flex-1 p-6 max-w-4xl mx-auto w-full">
+      <div className="flex flex-wrap gap-2 mb-6">
+        {guideTabs.map((tab) => (
+          <button
+            key={tab.id}
+            className={`px-4 py-2 rounded-full ${
+              activeTab === tab.id
+                ? "bg-green-100 text-green-700 font-bold"
+                : "bg-gray-200 text-gray-700"
+            }`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
+      {renderContent()}
+    </main>
+  );
+
+  // Jika login, gunakan Layout
+  if (isLoggedIn) {
+    return <Layout>{mainContent}</Layout>;
+  }
+
+  // Jika tidak login, tampilkan halaman publik
+  return (
+    <div className="flex flex-col min-h-screen bg-gray-50">
+      <header className="w-full flex justify-between items-center p-4 bg-white shadow-md sticky top-0 z-50">
+        <div className="flex items-center space-x-2">
+          <img src={IconLogo} alt="Logo" className="h-8 w-8" />
+          <span className="text-xl font-bold text-[#004030]">
+            SiTani - Panduan
+          </span>
+        </div>
+        <div className="space-x-4">
+          <Link to="/" className="text-[#004030] font-medium hover:underline">
+            Kembali ke Beranda
+          </Link>
+          <Link
+            to="/login"
+            className="bg-[#004030] text-white px-4 py-2 rounded-lg hover:bg-[#3b7a67]"
+          >
+            Masuk
+          </Link>
+        </div>
+      </header>
+
+      <div className="flex-1">{mainContent}</div>
+
+      <Footer />
     </div>
   );
 }
