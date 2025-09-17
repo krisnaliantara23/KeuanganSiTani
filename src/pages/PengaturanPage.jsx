@@ -650,6 +650,7 @@ const statusBadge = (status) => {
                     <tr className="bg-gray-100">
                       <th className="p-2">Nama</th>
                       <th className="p-2">Email</th>
+                      <th className="p-2">Nomor Telepon</th>
                       <th className="p-2">Role</th>
                       <th className="p-2">Aksi</th>
                     </tr>
@@ -659,6 +660,7 @@ const statusBadge = (status) => {
                       <tr key={m.user_id} className="border-t">
                         <td className="p-2">{m.nama || "-"}</td>
                         <td className="p-2">{m.email || "-"}</td>
+                        <td className="p-2">{m.nomor_telepon || "-"}</td>
                         <td className="p-2">{m.role || "-"}</td>
                         <td className="p-2">
                           <button
@@ -756,7 +758,7 @@ const statusBadge = (status) => {
 
                 {/* List undangan */}
                 <div className="mt-5">
-                  <h4 className="font-semibold mb-2">Undangan Aktif</h4>
+                  <h4 className="font-semibold mb-2">Undangan</h4>
                   {loadingInvites ? (
                     <p className="text-gray-500">Memuat…</p>
                   ) : invites.length === 0 ? (
@@ -769,38 +771,44 @@ const statusBadge = (status) => {
                           <th className="p-2">HP</th>
                           <th className="p-2">Role</th>
                           <th className="p-2">Kadaluwarsa</th>
+                          <th className="p-2">Status</th>
                           <th className="p-2">Aksi</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {invites.map((iv) => (
-                          <tr key={iv.invite_id || iv.id} className="border-t">
-                            <td className="p-2">
-                              {iv.target_email || iv.email || "-"}
-                            </td>
-                            <td className="p-2">
-                              {iv.target_phone || iv.phone || "-"}
-                            </td>
-                            <td className="p-2">{iv.role || "member"}</td>
-                            <td className="p-2">
-                              {iv.expires_at
-                                ? new Date(iv.expires_at).toLocaleString("id-ID")
-                                : "-"}
-                            </td>
-                            <td className="p-2">
-                              <button
-                                className="px-2 py-1 rounded bg-rose-600 text-white"
-                                onClick={() => onRevoke(iv)}
-                              >
-                                Cabut
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                        {invites.map((iv) => {
+                          const st = getInviteStatus(iv); // "pending" | "accepted" | "rejected" | lainnya
+                          return (
+                            <tr key={iv.invite_id || iv.id} className="border-t">
+                              <td className="p-2">{iv.target_email || iv.email || "-"}</td>
+                              <td className="p-2">{iv.target_phone || iv.phone || "-"}</td>
+                              <td className="p-2">{iv.role || "member"}</td>
+                              <td className="p-2">
+                                {iv.expires_at
+                                  ? new Date(iv.expires_at).toLocaleString("id-ID")
+                                  : "-"}
+                              </td>
+                              <td className="p-2">{statusBadge(st)}</td>
+                              <td className="p-2">
+                                {st === "pending" ? (
+                                  <button
+                                    className="px-2 py-1 rounded bg-rose-600 text-white"
+                                    onClick={() => onRevoke(iv)}
+                                  >
+                                    Cabut
+                                  </button>
+                                ) : (
+                                  <span className="text-gray-400 text-sm">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   )}
                 </div>
+
               </>
             )}
           </div>
