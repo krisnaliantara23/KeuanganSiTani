@@ -1,5 +1,6 @@
 // src/pages/PendapatanPage.jsx
 import React, { useEffect, useMemo, useState } from "react";
+import axios from "axios";
 import {
   getPendapatan,
   addPendapatan,
@@ -7,7 +8,10 @@ import {
   getLaporanById,
   deletePendapatan,
 } from "../services/financeService";
-import { getProducts } from "../services/productService";
+import {
+  getProducts as getProductsService,
+  getProductById,
+} from "../services/productService";
 import { listAkunKas } from "../services/akunKasService";
 import { listKategoriScopev2 } from "../services/kategoriService";
 import { getCurrentUser } from "../lib/auth";
@@ -16,8 +20,6 @@ import "../styles/pendapatan.css";
 // Toastr
 import toastr from "toastr";
 import "toastr/build/toastr.min.css";
-
-// set opsi global (sekali)
 toastr.options = {
   positionClass: "toast-top-right",
   closeButton: true,
@@ -28,6 +30,236 @@ toastr.options = {
   preventDuplicates: true,
 };
 
+
+const API_BASE = "https://be-laporankeuangan.up.railway.app/api";
+async function fetchProdukPaged({ page = 1, limit = 10, scope = "mine", search = "" }) {
+  const token = localStorage.getItem("token");
+  const params = new URLSearchParams();
+  params.set("page", String(page));
+  params.set("limit", String(limit));
+  if (scope) params.set("scope", scope);
+  if (search?.trim()) params.set("search", search.trim());
+  const url = `${API_BASE}/produk?${params.toString()}`;
+  return axios.get(url, { headers: { Authorization: `Bearer ${token}` } });
+}
+
+// ===== Komponen kecil: Pagination bar (First/Prev/numbered/Next/Last) =====
+function Pagination({ total, page, limit, onPageChange, onLimitChange }) {
+  const totalPages = Math.max(1, Math.ceil((total ?? 0) / (limit || 10)));
+  const canPrev = page > 1;
+  const canNext = page < totalPages;
+  const windowSize = 5;
+  const start = Math.max(1, page - Math.floor(windowSize / 2));
+  const end = Math.min(totalPages, start + windowSize - 1);
+  const pages = [];
+  for (let p = start; p <= end; p++) pages.push(p);
+
+  return (
+    <div className="flex items-center gap-2 mt-3 flex-wrap">
+      <button
+        className="px-3 py-1 border rounded disabled:opacity-50"
+        onClick={() => onPageChange(1)}
+        disabled={!canPrev}
+      >
+        «
+      </button>
+      <button
+        className="px-3 py-1 border rounded disabled:opacity-50"
+        onClick={() => onPageChange(page - 1)}
+        disabled={!canPrev}
+      >
+        Prev
+      </button>
+
+      {pages.map((p) => (
+        <button
+          key={p}
+          className={`px-3 py-1 border rounded ${p === page ? "bg-gray-200 font-semibold" : ""}`}
+          onClick={() => onPageChange(p)}
+        >
+          {p}
+        </button>
+      ))}
+
+      <button
+        className="px-3 py-1 border rounded disabled:opacity-50"
+        onClick={() => onPageChange(page + 1)}
+        disabled={!canNext}
+      >
+        Next
+      </button>
+      <button
+        className="px-3 py-1 border rounded disabled:opacity-50"
+        onClick={() => onPageChange(totalPages)}
+        disabled={!canNext}
+      >
+        »
+      </button>
+
+      <span className="ml-2 text-sm text-gray-600">
+        Halaman {page} dari {totalPages} — Total {total ?? 0}
+      </span>
+
+      {onLimitChange && (
+        <select
+          className="ml-3 border rounded px-2 py-1"
+          value={limit}
+          onChange={(e) => {
+            onLimitChange(Number(e.target.value));
+            onPageChange(1);
+          }}
+          title="Items per page"
+        >
+          <option value={10}>10</option>
+          <option value={25}>25</option>
+          <option value={50}>50</option>
+          <option value={100}>100</option>
+        </select>
+      )}
+    </div>
+  );
+}
+
+function ProductPicker({
+  isOpen,
+  onClose,
+  onSelect,        // (productObj) => void
+  allowedKategoriIds, // Set<number> berisi kategori yang boleh (pemasukan + modal)
+  scope,           // mine | mine_or_cluster | all
+}) {
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [rows, setRows] = useState([]);
+
+  const isAllowed = (p) => {
+    const kid = Number(p.kategori_id ?? p.kategori?.kategori_id ?? 0);
+    if (!kid) return false;
+    return allowedKategoriIds.has(kid);
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, page, limit, scope]);
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      const res = await fetchProdukPaged({ page, limit, scope, search });
+      const payload = res?.data || {};
+      const list = Array.isArray(payload.data) ? payload.data : [];
+      // filter FE: hanya kategori pemasukan/modal
+      const filtered = list.filter(isAllowed);
+      setRows(filtered);
+      setTotal(payload.total ?? 0);
+      // auto-koreksi page kalau out-of-range
+      const maxPage = Math.max(1, Math.ceil((payload.total ?? 0) / limit));
+      if (page > maxPage) setPage(maxPage);
+    } catch (e) {
+      console.error("Gagal load produk (picker):", e);
+      setRows([]);
+      setTotal(0);
+      toastr.error("Gagal memuat produk.", "Gagal");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const applySearch = () => {
+    setPage(1);
+    load();
+  };
+
+  if (!isOpen) return null;
+  return (
+    <div className="modal-overlay">
+      <div className="modal-box w-full max-w-none md:max-w-3xl h-[100dvh] md:h-auto rounded-none md:rounded-xl overflow-y-auto">
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <h3 className="text-xl font-bold">Pilih Produk</h3>
+          <button className="btn-cancel" onClick={onClose}>Tutup</button>
+        </div>
+
+        <div className="flex gap-2 mb-3">
+          <input
+            className="border rounded px-3 py-2 w-full"
+            placeholder="Cari nama produk…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && applySearch()}
+          />
+          <button className="px-3 py-2 bg-gray-100 rounded border" onClick={applySearch}>
+            Cari
+          </button>
+        </div>
+
+        <div className="border rounded">
+          <div className="hidden md:grid grid-cols-12 gap-2 px-3 py-2 bg-gray-50 text-sm font-medium">
+            <div className="col-span-6">Nama Produk</div>
+            <div className="col-span-4">Kategori</div>
+            <div className="col-span-2">Aksi</div>
+          </div>
+
+          {loading ? (
+            <div className="p-4 text-center text-gray-500">Memuat…</div>
+          ) : rows.length === 0 ? (
+            <div className="p-4 text-center text-gray-500">Tidak ada produk di halaman ini.</div>
+          ) : (
+            rows.map((p) => (
+              <div key={p.produk_id} className="px-3 py-3 border-t first:border-t-0">
+                {/* mobile */}
+                <div className="md:hidden space-y-1">
+                  <div className="font-semibold">{p.nama}</div>
+                  <div className="text-sm text-gray-600">
+                    {p.kategori?.nama || p.kategori_nama || "-"}{p.kategori?.jenis ? ` — ${p.kategori?.jenis}` : ""}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {(p.share_to_klaster ?? p.share_klaster ?? p.klaster_id) ? "Klaster" : "Pribadi"}
+                  </div>
+                  <div className="pt-2">
+                    <button className="px-2 py-1 rounded bg-emerald-600 text-white" onClick={() => onSelect(p)}>
+                      Pilih
+                    </button>
+                  </div>
+                </div>
+
+                {/* desktop */}
+                <div className="hidden md:grid grid-cols-12 gap-2 items-center">
+                  <div className="col-span-6">
+                    <div className="font-semibold">{p.nama}</div>
+                    <div className="text-xs text-gray-500">
+                      {(p.share_to_klaster ?? p.share_klaster ?? p.klaster_id) ? "Klaster" : "Pribadi"}
+                    </div>
+                  </div>
+                  <div className="col-span-4">
+                    {p.kategori?.nama || p.kategori_nama || "-"}{p.kategori?.jenis ? ` — ${p.kategori?.jenis}` : ""}
+                  </div>
+                  <div className="col-span-2">
+                    <button className="px-2 py-1 rounded bg-emerald-600 text-white" onClick={() => onSelect(p)}>
+                      Pilih
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <Pagination
+          total={total}
+          page={page}
+          limit={limit}
+          onPageChange={setPage}
+          onLimitChange={setLimit}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function PendapatanPage() {
   const token = localStorage.getItem("token");
   const me = getCurrentUser() || {};
@@ -37,7 +269,8 @@ export default function PendapatanPage() {
   // ====== state utama (khusus pendapatan) ======
   const [pendapatan, setPendapatan] = useState([]);
   const [akunKas, setAkunKas] = useState([]);
-  const [produkPemasukan, setProdukPemasukan] = useState([]);
+  // cache produk terpilih (id -> object) biar nama tampil tanpa fetch berulang
+  const [produkCache, setProdukCache] = useState(new Map());
 
   // filter
   const [filterShare, setFilterShare] = useState("all");
@@ -59,12 +292,43 @@ export default function PendapatanPage() {
   const [items, setItems] = useState([{ produk_id: 0, qty: 1, harga_satuan: 0 }]);
   const [hargaDisplay, setHargaDisplay] = useState([""]);
 
+  // ====== ProductPicker state ======
+  const role = String(me?.role || "").toLowerCase();
+  const isAdmin = ["admin", "superadmin"].includes(role);
+  const produkScope = isAdmin ? "all" : (klasterId ? "mine_or_cluster" : "mine");
+
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerRowIndex, setPickerRowIndex] = useState(null);
+  const [allowedKategoriIds, setAllowedKategoriIds] = useState(new Set()); // pemasukan + modal
+
   // ====== effects ======
   useEffect(() => {
     loadInitialData();
-    loadProductsForDropdown();
     loadAkunKas();
+    prepareAllowedKategori();   // siapkan kategori pemasukan + modal
   }, []);
+
+  // siapkan set kategori_id yang boleh (pemasukan + modal)
+  async function prepareAllowedKategori() {
+    try {
+      const scopeParams = getScopeParams({});
+      const [resIncome, resModal] = await Promise.all([
+        listKategoriScopev2({ ...scopeParams, jenis: "pemasukan", limit: 300 }),
+        listKategoriScopev2({ ...scopeParams, jenis: "modal", limit: 300 }),
+      ]);
+      const arr1 = Array.isArray(resIncome.data?.data) ? resIncome.data.data : [];
+      const arr2 = Array.isArray(resModal.data?.data) ? resModal.data.data : [];
+      const setIds = new Set([
+        ...arr1.map((k) => Number(k.kategori_id)),
+        ...arr2.map((k) => Number(k.kategori_id)),
+      ]);
+      setAllowedKategoriIds(setIds);
+    } catch (e) {
+      console.error("Gagal memuat kategori pemasukan/modal:", e);
+      setAllowedKategoriIds(new Set());
+      toastr.error("Gagal memuat kategori untuk filter produk.", "Gagal");
+    }
+  }
 
   // ====== helpers ======
   function getScopeParams(extra = {}) {
@@ -111,40 +375,6 @@ export default function PendapatanPage() {
     }
   }
 
-  async function loadProductsForDropdown() {
-    try {
-      const [resProduk, resKat] = await Promise.all([
-        getProducts(),
-        listKategoriScopev2(getScopeParams({ jenis: "pemasukan", limit: 200 })),
-      ]);
-
-      const listProduk = Array.isArray(resProduk.data?.data)
-        ? resProduk.data.data
-        : resProduk.data || [];
-
-      const katIncome = Array.isArray(resKat.data?.data) ? resKat.data.data : [];
-      const incomeIds = new Set(katIncome.map((k) => Number(k.kategori_id)));
-
-      const onlyIncome = listProduk.filter((p) => {
-        const jenis = (
-          p.kategori_jenis ||
-          p.jenis_kategori ||
-          p.kategori?.jenis ||
-          p.jenis ||
-          ""
-        ).toLowerCase();
-        if (jenis) return jenis === "pemasukan";
-        return incomeIds.size ? incomeIds.has(Number(p.kategori_id)) : false;
-      });
-
-      setProdukPemasukan(onlyIncome);
-    } catch (err) {
-      console.error("Gagal ambil produk/kategori:", err);
-      setProdukPemasukan([]);
-      toastr.error("Gagal memuat produk/kategori.", "Gagal");
-    }
-  }
-
   async function loadAkunKas(params = { page: 1, limit: 100 }) {
     try {
       const res = await listAkunKas(params);
@@ -154,6 +384,23 @@ export default function PendapatanPage() {
       console.error("Gagal ambil akun kas:", err);
       setAkunKas([]);
       toastr.error("Gagal memuat akun kas.", "Gagal");
+    }
+  }
+
+  // saat Edit, jika ada produk_id yang belum ada di cache, ambil detilnya
+  async function ensureCachedProducts(productIds = []) {
+    const missing = productIds.filter((id) => !produkCache.has(id));
+    if (!missing.length) return;
+    try {
+      const fetched = await Promise.all(missing.map((id) => getProductById(id)));
+      const next = new Map(produkCache);
+      fetched.forEach((res) => {
+        const p = res?.data?.data || res?.data || null;
+        if (p?.produk_id) next.set(p.produk_id, p);
+      });
+      setProdukCache(next);
+    } catch (e) {
+      // skip quietly
     }
   }
 
@@ -173,9 +420,6 @@ export default function PendapatanPage() {
     const qty = Math.max(0, Number(val || 0));
     updateRow(idx, { qty });
   };
-  const onProdukChange = (idx, val) => {
-    updateRow(idx, { produk_id: Number(val || 0) });
-  };
   const onHargaChange = (idx, e) => {
     const raw = e.target.value.replace(/\D/g, "");
     const num = Number(raw || 0);
@@ -184,6 +428,28 @@ export default function PendapatanPage() {
   };
   const onHargaBlur = (idx) => {
     setHargaDisplay((d) => d.map((s, i) => (i === idx ? formatRupiah(items[idx].harga_satuan) : s)));
+  };
+
+  // buka ProductPicker untuk baris ke-idx
+  const openPicker = (idx) => {
+    setPickerRowIndex(idx);
+    setPickerOpen(true);
+  };
+  const closePicker = () => {
+    setPickerOpen(false);
+    setPickerRowIndex(null);
+  };
+  const handleSelectProduct = (p) => {
+    if (pickerRowIndex == null) return;
+    // set produk id ke baris
+    updateRow(pickerRowIndex, { produk_id: Number(p.produk_id || 0) });
+    // cache untuk tampilan nama
+    setProdukCache((m) => {
+      const next = new Map(m);
+      next.set(p.produk_id, p);
+      return next;
+    });
+    closePicker();
   };
 
   // ====== CRUD pendapatan ======
@@ -222,10 +488,9 @@ export default function PendapatanPage() {
       produk_id: r.produk_id,
       jumlah: Number(r.qty),
       harga_satuan: Number(r.harga_satuan),
-      subtotal: subtot(r),
+      subtotal: Number(r.qty) * Number(r.harga_satuan),
     }));
 
-    // toast pending
     const pendingToast = toastr.info(editingId ? "Menyimpan perubahan…" : "Menyimpan…", "", {
       timeOut: 0,
       extendedTimeOut: 0,
@@ -237,7 +502,7 @@ export default function PendapatanPage() {
       if (editingId) {
         await updatePendapatan(token, editingId, {
           jenis: "pemasukan",
-          debit: total,
+          debit: details.reduce((s, d) => s + d.subtotal, 0),
           kredit: 0,
           akun_id: form.akun_id,
           deskripsi: form.deskripsi,
@@ -248,7 +513,7 @@ export default function PendapatanPage() {
       } else {
         await addPendapatan(token, {
           jenis: "pemasukan",
-          debit: total,
+          debit: details.reduce((s, d) => s + d.subtotal, 0),
           kredit: 0,
           akun_id: form.akun_id,
           deskripsi: form.deskripsi,
@@ -311,6 +576,7 @@ export default function PendapatanPage() {
         setItems(its);
         setHargaDisplay(its.map((x) => (x.harga_satuan ? formatRupiah(x.harga_satuan) : "")));
         setReplaceItems(false);
+        await ensureCachedProducts(its.map((x) => x.produk_id).filter(Boolean));
       } else {
         setItems([{ produk_id: 0, qty: 1, harga_satuan: 0 }]);
         setHargaDisplay([""]);
@@ -403,6 +669,12 @@ export default function PendapatanPage() {
       saldo: acc?.saldo_akhir,
     };
   }, [transaksiTerakhir, akunKas]);
+
+  const productName = (id) => {
+    if (!id) return "";
+    const p = produkCache.get(id);
+    return p?.nama || `Produk #${id}`;
+  };
 
   // ====== render ======
   return (
@@ -673,24 +945,25 @@ export default function PendapatanPage() {
 
                 {items.map((r, idx) => (
                   <div key={idx} className="mb-3">
-                    {/* Mobile: stacked */}
+                    {/* Mobile */}
                     <div className="md:hidden space-y-2">
                       <div>
                         <label className="text-xs text-gray-500">Produk</label>
-                        <select
-                          className="w-full border rounded px-3 py-2"
-                          value={r.produk_id}
-                          onChange={(e) => onProdukChange(idx, e.target.value)}
-                          required
-                        >
-                          <option value={0}>Pilih produk</option>
-                          {produkPemasukan.map((p) => (
-                            <option key={p.produk_id} value={p.produk_id}>
-                              {p.nama}
-                              {p.kategori_nama ? ` — ${p.kategori_nama}` : ""}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="flex gap-2">
+                          <input
+                            className="w-full border rounded px-3 py-2"
+                            readOnly
+                            placeholder="Belum dipilih"
+                            value={r.produk_id ? productName(r.produk_id) : ""}
+                          />
+                          <button
+                            type="button"
+                            className="px-2 py-1 rounded bg-indigo-600 text-white"
+                            onClick={() => openPicker(idx)}
+                          >
+                            Pilih
+                          </button>
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
@@ -730,23 +1003,24 @@ export default function PendapatanPage() {
                       )}
                     </div>
 
-                    {/* Desktop: grid */}
+                    {/* Desktop */}
                     <div className="hidden md:grid grid-cols-12 gap-2 items-center">
                       <div className="col-span-6">
-                        <select
-                          className="w-full border rounded px-2 py-1"
-                          value={r.produk_id}
-                          onChange={(e) => onProdukChange(idx, e.target.value)}
-                          required
-                        >
-                          <option value={0}>Pilih produk</option>
-                          {produkPemasukan.map((p) => (
-                            <option key={p.produk_id} value={p.produk_id}>
-                              {p.nama}
-                              {p.kategori_nama ? ` — ${p.kategori_nama}` : ""}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="flex gap-2">
+                          <input
+                            className="w-full border rounded px-2 py-1"
+                            readOnly
+                            placeholder="Belum dipilih"
+                            value={r.produk_id ? productName(r.produk_id) : ""}
+                          />
+                          <button
+                            type="button"
+                            className="px-2 py-1 rounded bg-indigo-600 text-white"
+                            onClick={() => openPicker(idx)}
+                          >
+                            Pilih
+                          </button>
+                        </div>
                       </div>
                       <div className="col-span-2">
                         <input
@@ -857,6 +1131,15 @@ export default function PendapatanPage() {
           </div>
         </div>
       )}
+
+      {/* Product Picker Modal */}
+      <ProductPicker
+        isOpen={pickerOpen}
+        onClose={closePicker}
+        onSelect={handleSelectProduct}
+        allowedKategoriIds={allowedKategoriIds}
+        scope={produkScope}
+      />
     </>
   );
 }
