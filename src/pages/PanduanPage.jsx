@@ -67,8 +67,9 @@ export default function PanduanPage() {
               </h3>
               <p className="text-gray-700 mb-3">
                 Jika Anda sudah memiliki akun, masuklah untuk mulai mengelola
-                keuangan Anda.
+                keuangan Anda. 
               </p>
+              {/* cihuy */}
               <ul className="list-decimal list-inside text-gray-700 space-y-2">
                 <li>
                   Klik tombol <strong>"Masuk"</strong> di halaman utama.
