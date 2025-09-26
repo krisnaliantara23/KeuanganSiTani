@@ -67,6 +67,13 @@ export default function PengaturanPage() {
   const [mkName, setMkName] = useState("");
   const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState("");
+  const [membersKlasterId, setMembersKlasterId] = useState(null);
+
+
+const isSuperadmin = useMemo(
+  () => (me?.role || "").toLowerCase() === "superadmin",
+  [me]
+);
 
   const isAdmin = useMemo(
     () => ["admin", "superadmin"].includes((me?.role || "").toLowerCase()),
@@ -94,21 +101,25 @@ export default function PengaturanPage() {
   }, [token]);
 
   // ===== Load undangan + data klaster berdasar role =====
-  useEffect(() => {
-    if (!me) return;
+useEffect(() => {
+  if (!me) return;
 
-    if (isAdmin && me.klaster_id) {
-      loadKlasterInvites();
-    } else {
-      loadMyInvites();
-    }
+  // undangan: admin & superadmin lihat undangan klaster sendiri, non-admin lihat "untuk saya"
+  if (isAdmin && me.klaster_id) {
+    loadKlasterInvites();
+  } else {
+    loadMyInvites();
+  }
 
-    if (isAdmin) {
-      loadKlasters();
-      if (me.klaster_id) openMembers(me.klaster_id);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [me]);
+  // daftar semua klaster hanya untuk superadmin
+  if (isSuperadmin) {
+    loadKlasters();
+  }
+
+  // siapa pun yang punya klaster → buka anggota klaster dirinya
+  if (me.klaster_id) openMembers(me.klaster_id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [me, isAdmin, isSuperadmin]);
 
   // ================== START CRUD KLASTER ========================
   async function loadKlasters() {
@@ -127,24 +138,25 @@ export default function PengaturanPage() {
   }
 
   async function openMembers(klasterId) {
-    if (!klasterId) {
-      setMembers([]);
-      return;
-    }
-    try {
-      setLoadingMembers(true);
-      const res = await getKlasterDetail(token, klasterId);
-      const list = Array.isArray(res.data?.members)
-        ? res.data.members
-        : res.data?.members || [];
-      setMembers(list);
-    } catch (e) {
-      console.error("Gagal ambil members:", e);
-      setMembers([]);
-    } finally {
-      setLoadingMembers(false);
-    }
+  if (!klasterId) {
+    setMembers([]);
+    setMembersKlasterId(null);
+    return;
   }
+  try {
+    setLoadingMembers(true);
+    setMembersKlasterId(Number(klasterId));
+    const res = await getKlasterDetail(token, klasterId);
+    const list = Array.isArray(res.data?.members) ? res.data.members : res.data?.members || [];
+    setMembers(list);
+  } catch (e) {
+    console.error("Gagal ambil members:", e);
+    setMembers([]);
+  } finally {
+    setLoadingMembers(false);
+  }
+}
+
 
   // ganti klaster (admin/superadmin)
   async function changeMyKlaster() {
@@ -203,16 +215,18 @@ export default function PengaturanPage() {
   }
 
   async function onKick(u) {
-    if (!me?.klaster_id) return;
-    if (u.user_id === me.user_id) return alert("Tidak bisa mengeluarkan diri sendiri.");
-    if (!window.confirm(`Keluarkan ${u.nama || u.email}?`)) return;
-    try {
-      await kickMember(token, me.klaster_id, u.user_id);
-      await openMembers(me.klaster_id);
-    } catch (e) {
-      alert(e?.response?.data?.message || "Gagal mengeluarkan member");
-    }
+  const targetKlasterId = membersKlasterId || me?.klaster_id;
+  if (!targetKlasterId) return;
+  if (u.user_id === me.user_id) return alert("Tidak bisa mengeluarkan diri sendiri.");
+  if (!window.confirm(`Keluarkan ${u.nama || u.email}?`)) return;
+  try {
+    await kickMember(token, targetKlasterId, u.user_id);
+    await openMembers(targetKlasterId);
+  } catch (e) {
+    alert(e?.response?.data?.message || "Gagal mengeluarkan member");
   }
+}
+
   // ===================== END OF CRUD KLASTER ===========================
 
   async function loadKlasterInvites() {
@@ -650,6 +664,7 @@ const statusBadge = (status) => {
                     <tr className="bg-gray-100">
                       <th className="p-2">Nama</th>
                       <th className="p-2">Email</th>
+                      <th className="p-2">Nomor Telepon</th>
                       <th className="p-2">Role</th>
                       <th className="p-2">Aksi</th>
                     </tr>
@@ -659,6 +674,7 @@ const statusBadge = (status) => {
                       <tr key={m.user_id} className="border-t">
                         <td className="p-2">{m.nama || "-"}</td>
                         <td className="p-2">{m.email || "-"}</td>
+                        <td className="p-2">{m.nomor_telepon || "-"}</td>
                         <td className="p-2">{m.role || "-"}</td>
                         <td className="p-2">
                           <button
@@ -756,7 +772,7 @@ const statusBadge = (status) => {
 
                 {/* List undangan */}
                 <div className="mt-5">
-                  <h4 className="font-semibold mb-2">Undangan Aktif</h4>
+                  <h4 className="font-semibold mb-2">Undangan</h4>
                   {loadingInvites ? (
                     <p className="text-gray-500">Memuat…</p>
                   ) : invites.length === 0 ? (
@@ -769,38 +785,44 @@ const statusBadge = (status) => {
                           <th className="p-2">HP</th>
                           <th className="p-2">Role</th>
                           <th className="p-2">Kadaluwarsa</th>
+                          <th className="p-2">Status</th>
                           <th className="p-2">Aksi</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {invites.map((iv) => (
-                          <tr key={iv.invite_id || iv.id} className="border-t">
-                            <td className="p-2">
-                              {iv.target_email || iv.email || "-"}
-                            </td>
-                            <td className="p-2">
-                              {iv.target_phone || iv.phone || "-"}
-                            </td>
-                            <td className="p-2">{iv.role || "member"}</td>
-                            <td className="p-2">
-                              {iv.expires_at
-                                ? new Date(iv.expires_at).toLocaleString("id-ID")
-                                : "-"}
-                            </td>
-                            <td className="p-2">
-                              <button
-                                className="px-2 py-1 rounded bg-rose-600 text-white"
-                                onClick={() => onRevoke(iv)}
-                              >
-                                Cabut
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                        {invites.map((iv) => {
+                          const st = getInviteStatus(iv); // "pending" | "accepted" | "rejected" | lainnya
+                          return (
+                            <tr key={iv.invite_id || iv.id} className="border-t">
+                              <td className="p-2">{iv.target_email || iv.email || "-"}</td>
+                              <td className="p-2">{iv.target_phone || iv.phone || "-"}</td>
+                              <td className="p-2">{iv.role || "member"}</td>
+                              <td className="p-2">
+                                {iv.expires_at
+                                  ? new Date(iv.expires_at).toLocaleString("id-ID")
+                                  : "-"}
+                              </td>
+                              <td className="p-2">{statusBadge(st)}</td>
+                              <td className="p-2">
+                                {st === "pending" ? (
+                                  <button
+                                    className="px-2 py-1 rounded bg-rose-600 text-white"
+                                    onClick={() => onRevoke(iv)}
+                                  >
+                                    Cabut
+                                  </button>
+                                ) : (
+                                  <span className="text-gray-400 text-sm">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   )}
                 </div>
+
               </>
             )}
           </div>

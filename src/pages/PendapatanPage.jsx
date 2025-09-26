@@ -7,49 +7,313 @@ import {
   getLaporanById,
   deletePendapatan,
 } from "../services/financeService";
-import { getProducts } from "../services/productService";
+import { getProducts, getProductById } from "../services/productService";
 import { listAkunKas } from "../services/akunKasService";
 import { listKategoriScopev2 } from "../services/kategoriService";
 import { getCurrentUser } from "../lib/auth";
 import "../styles/pendapatan.css";
 
-// Toastr
-import toastr from "toastr";
-import "toastr/build/toastr.min.css";
+// ========== Utils ==========
+const toastr = window.toastr; // kalau kamu pakai toastr; opsional
+if (toastr) {
+  toastr.options = {
+    positionClass: "toast-top-right",
+    closeButton: true,
+    progressBar: true,
+    timeOut: 2200,
+    extendedTimeOut: 1500,
+    newestOnTop: true,
+    preventDuplicates: true,
+  };
+}
 
-// set opsi global (sekali)
-toastr.options = {
-  positionClass: "toast-top-right",
-  closeButton: true,
-  progressBar: true,
-  timeOut: 2200,
-  extendedTimeOut: 1500,
-  newestOnTop: true,
-  preventDuplicates: true,
+const formatRupiah = (value) =>
+  !value
+    ? ""
+    : new Intl.NumberFormat("id-ID", {
+        style: "currency",
+        currency: "IDR",
+        minimumFractionDigits: 0,
+      }).format(value);
+
+const isShared = (obj) =>
+  Boolean(obj?.share_to_klaster ?? obj?.share_klaster ?? obj?.klaster_id);
+
+const getScopeParams = (extra = {}) => {
+  let user_id = null,
+    klaster_id = null;
+  try {
+    const raw = localStorage.getItem("user");
+    if (raw) {
+      const obj = JSON.parse(raw);
+      user_id = obj?.user_id || obj;
+      klaster_id = obj?.klaster_id || null;
+    }
+  } catch {}
+  const p = { ...extra };
+  if (user_id) p.user_id = user_id;
+  if (klaster_id) p.klaster_id = klaster_id;
+  return p;
 };
+
+// ========== Pagination Component ==========
+function Pagination({ total, page, limit, onPageChange, onLimitChange }) {
+  const totalPages = Math.max(1, Math.ceil((total ?? 0) / (limit || 10)));
+  const canPrev = page > 1;
+  const canNext = page < totalPages;
+
+  const windowSize = 5;
+  const start = Math.max(1, page - Math.floor(windowSize / 2));
+  const end = Math.min(totalPages, start + windowSize - 1);
+  const pages = [];
+  for (let p = start; p <= end; p++) pages.push(p);
+
+  return (
+    <div className="flex items-center gap-2 mt-3 flex-wrap">
+      <button
+        className="px-3 py-1 border rounded disabled:opacity-50"
+        onClick={() => onPageChange(1)}
+        disabled={!canPrev}
+      >
+        «
+      </button>
+      <button
+        className="px-3 py-1 border rounded disabled:opacity-50"
+        onClick={() => onPageChange(page - 1)}
+        disabled={!canPrev}
+      >
+        Prev
+      </button>
+
+      {pages.map((p) => (
+        <button
+          key={p}
+          className={`px-3 py-1 border rounded ${
+            p === page ? "bg-gray-200 font-semibold" : ""
+          }`}
+          onClick={() => onPageChange(p)}
+        >
+          {p}
+        </button>
+      ))}
+
+      <button
+        className="px-3 py-1 border rounded disabled:opacity-50"
+        onClick={() => onPageChange(page + 1)}
+        disabled={!canNext}
+      >
+        Next
+      </button>
+      <button
+        className="px-3 py-1 border rounded disabled:opacity-50"
+        onClick={() => onPageChange(totalPages)}
+        disabled={!canNext}
+      >
+        »
+      </button>
+
+      <span className="ml-2 text-sm text-gray-600">
+        Halaman {page} dari {totalPages} — Total {total ?? 0}
+      </span>
+
+      {onLimitChange && (
+        <select
+          className="ml-3 border rounded px-2 py-1"
+          value={limit}
+          onChange={(e) => {
+            onLimitChange(Number(e.target.value));
+            onPageChange(1);
+          }}
+          title="Items per page"
+        >
+          <option value={10}>10</option>
+          <option value={25}>25</option>
+          <option value={50}>50</option>
+          <option value={100}>100</option>
+        </select>
+      )}
+    </div>
+  );
+}
+
+// ========== Product Picker (search + pagination) ==========
+function ProductPicker({
+  isOpen,
+  onClose,
+  onSelect,
+  allowedKategoriIds, // Set<number> gabungan kategori "pemasukan" & "modal"
+}) {
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [rows, setRows] = useState([]);
+
+  const isAllowed = (p) => {
+    const kid = Number(p.kategori_id ?? p.kategori?.kategori_id ?? 0);
+    if (!kid) return false;
+    return allowedKategoriIds.has(kid);
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, page, limit]);
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      const res = await getProducts({ page, limit, search: search?.trim() || undefined });
+      const payload = res?.data || {};
+      const list = Array.isArray(payload.data) ? payload.data : [];
+      const filtered = list.filter(isAllowed);
+      setRows(filtered);
+      setTotal(payload.total ?? 0);
+
+      // jaga2 kalau user search dan total page berubah
+      const maxPage = Math.max(1, Math.ceil((payload.total ?? 0) / limit));
+      if (page > maxPage) setPage(maxPage);
+    } catch (e) {
+      console.error("Gagal load produk (picker):", e);
+      setRows([]);
+      setTotal(0);
+      alert("Gagal memuat produk.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const applySearch = () => {
+    setPage(1);
+    load();
+  };
+
+  if (!isOpen) return null;
+  return (
+    <div className="modal-overlay">
+      <div className="modal-box w-full max-w-none md:max-w-3xl h-[100dvh] md:h-auto rounded-none md:rounded-xl overflow-y-auto">
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <h3 className="text-xl font-bold">Pilih Produk (Pemasukan & Modal)</h3>
+          <button className="btn-cancel" onClick={onClose}>
+            Tutup
+          </button>
+        </div>
+
+        <div className="flex gap-2 mb-3">
+          <input
+            className="border rounded px-3 py-2 w-full"
+            placeholder="Cari nama produk…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && applySearch()}
+          />
+          <button className="px-3 py-2 bg-gray-100 rounded border" onClick={applySearch}>
+            Cari
+          </button>
+        </div>
+
+        <div className="border rounded">
+          <div className="hidden md:grid grid-cols-12 gap-2 px-3 py-2 bg-gray-50 text-sm font-medium">
+            <div className="col-span-6">Nama Produk</div>
+            <div className="col-span-4">Kategori</div>
+            <div className="col-span-2">Aksi</div>
+          </div>
+
+          {loading ? (
+            <div className="p-4 text-center text-gray-500">Memuat…</div>
+          ) : rows.length === 0 ? (
+            <div className="p-4 text-center text-gray-500">Tidak ada produk di halaman ini.</div>
+          ) : (
+            rows.map((p) => (
+              <div key={p.produk_id} className="px-3 py-3 border-t first:border-t-0">
+                {/* mobile */}
+                <div className="md:hidden space-y-1">
+                  <div className="font-semibold">{p.nama}</div>
+                  <div className="text-sm text-gray-600">
+                    {p.kategori?.nama || p.kategori_nama || "-"}
+                    {p.kategori?.jenis ? ` — ${p.kategori?.jenis}` : ""}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {(p.share_to_klaster ?? p.share_klaster ?? p.klaster_id) ? "Klaster" : "Pribadi"}
+                  </div>
+                  <div className="pt-2">
+                    <button
+                      className="px-2 py-1 rounded bg-emerald-600 text-white"
+                      onClick={() => onSelect(p)}
+                    >
+                      Pilih
+                    </button>
+                  </div>
+                </div>
+
+                {/* desktop */}
+                <div className="hidden md:grid grid-cols-12 gap-2 items-center">
+                  <div className="col-span-6">
+                    <div className="font-semibold">{p.nama}</div>
+                    <div className="text-xs text-gray-500">
+                      {(p.share_to_klaster ?? p.share_klaster ?? p.klaster_id) ? "Klaster" : "Pribadi"}
+                    </div>
+                  </div>
+                  <div className="col-span-4">
+                    {p.kategori?.nama || p.kategori_nama || "-"}
+                    {p.kategori?.jenis ? ` — ${p.kategori?.jenis}` : ""}
+                  </div>
+                  <div className="col-span-2">
+                    <button
+                      className="px-2 py-1 rounded bg-emerald-600 text-white"
+                      onClick={() => onSelect(p)}
+                    >
+                      Pilih
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <Pagination
+          total={total}
+          page={page}
+          limit={limit}
+          onPageChange={setPage}
+          onLimitChange={setLimit}
+        />
+      </div>
+    </div>
+  );
+}
 
 export default function PendapatanPage() {
   const token = localStorage.getItem("token");
   const me = getCurrentUser() || {};
   const userId = me.user_id || null;
-  const klasterId = me.klaster_id || null;
 
-  // ====== state utama (khusus pendapatan) ======
+  // ====== state utama
   const [pendapatan, setPendapatan] = useState([]);
   const [akunKas, setAkunKas] = useState([]);
-  const [produkPemasukan, setProdukPemasukan] = useState([]);
 
-  // filter
+  // cache produk (id -> objek) untuk tampilkan nama di input readOnly
+  const [produkCache, setProdukCache] = useState(new Map());
+
+  // kategori yang diizinkan: pemasukan + modal
+  const [allowedKategoriIds, setAllowedKategoriIds] = useState(new Set());
+
+  // filter & modal transaksi
   const [filterShare, setFilterShare] = useState("all");
-
-  // modal transaksi
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [replaceItems, setReplaceItems] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
   const [copied, setCopied] = useState(false);
 
-  // form transaksi (multi item)
+  // ProductPicker state
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerRowIndex, setPickerRowIndex] = useState(null);
+
+  // form transaksi & items
   const [form, setForm] = useState({
     akun_id: 0,
     deskripsi: "",
@@ -59,47 +323,13 @@ export default function PendapatanPage() {
   const [items, setItems] = useState([{ produk_id: 0, qty: 1, harga_satuan: 0 }]);
   const [hargaDisplay, setHargaDisplay] = useState([""]);
 
-  // ====== effects ======
+  // ====== effects
   useEffect(() => {
     loadInitialData();
-    loadProductsForDropdown();
     loadAkunKas();
+    prepareAllowedKategori(); // pemasukan + modal
   }, []);
 
-  // ====== helpers ======
-  function getScopeParams(extra = {}) {
-    let user_id = null,
-      klaster_id = null;
-    try {
-      const raw = localStorage.getItem("user");
-      if (raw) {
-        const obj = JSON.parse(raw);
-        user_id = obj?.user_id || obj;
-        klaster_id = obj?.klaster_id || null;
-      }
-    } catch {}
-    const p = { ...extra };
-    if (user_id) p.user_id = user_id;
-    if (klaster_id) p.klaster_id = klaster_id;
-    return p;
-  }
-
-  const isShared = (obj) =>
-    Boolean(obj?.share_to_klaster ?? obj?.share_klaster ?? obj?.klaster_id);
-
-  const formatRupiah = (value) =>
-    !value
-      ? ""
-      : new Intl.NumberFormat("id-ID", {
-          style: "currency",
-          currency: "IDR",
-          minimumFractionDigits: 0,
-        }).format(value);
-
-  const subtot = (row) => Number(row.qty || 0) * Number(row.harga_satuan || 0);
-  const total = useMemo(() => items.reduce((s, r) => s + subtot(r), 0), [items]);
-
-  // ====== loaders ======
   async function loadInitialData() {
     try {
       const data = await getPendapatan(token, { user_id: userId });
@@ -107,41 +337,7 @@ export default function PendapatanPage() {
     } catch (err) {
       console.error("Gagal ambil pendapatan:", err);
       setPendapatan([]);
-      toastr.error("Gagal memuat riwayat pendapatan.", "Gagal");
-    }
-  }
-
-  async function loadProductsForDropdown() {
-    try {
-      const [resProduk, resKat] = await Promise.all([
-        getProducts(),
-        listKategoriScopev2(getScopeParams({ jenis: "pemasukan", limit: 200 })),
-      ]);
-
-      const listProduk = Array.isArray(resProduk.data?.data)
-        ? resProduk.data.data
-        : resProduk.data || [];
-
-      const katIncome = Array.isArray(resKat.data?.data) ? resKat.data.data : [];
-      const incomeIds = new Set(katIncome.map((k) => Number(k.kategori_id)));
-
-      const onlyIncome = listProduk.filter((p) => {
-        const jenis = (
-          p.kategori_jenis ||
-          p.jenis_kategori ||
-          p.kategori?.jenis ||
-          p.jenis ||
-          ""
-        ).toLowerCase();
-        if (jenis) return jenis === "pemasukan";
-        return incomeIds.size ? incomeIds.has(Number(p.kategori_id)) : false;
-      });
-
-      setProdukPemasukan(onlyIncome);
-    } catch (err) {
-      console.error("Gagal ambil produk/kategori:", err);
-      setProdukPemasukan([]);
-      toastr.error("Gagal memuat produk/kategori.", "Gagal");
+      toastr?.error?.("Gagal memuat riwayat pendapatan.", "Gagal");
     }
   }
 
@@ -153,11 +349,49 @@ export default function PendapatanPage() {
     } catch (err) {
       console.error("Gagal ambil akun kas:", err);
       setAkunKas([]);
-      toastr.error("Gagal memuat akun kas.", "Gagal");
+      toastr?.error?.("Gagal memuat akun kas.", "Gagal");
     }
   }
 
-  // ====== handlers form items ======
+  // Ambil kategori_id untuk jenis "pemasukan" dan "modal"
+  async function prepareAllowedKategori() {
+    try {
+      const [resIn, resModal] = await Promise.all([
+        listKategoriScopev2(getScopeParams({ jenis: "pemasukan", limit: 300 })),
+        listKategoriScopev2(getScopeParams({ jenis: "modal", limit: 300 })),
+      ]);
+      const arrIn = Array.isArray(resIn.data?.data) ? resIn.data.data : [];
+      const arrMd = Array.isArray(resModal.data?.data) ? resModal.data.data : [];
+      const ids = new Set([...arrIn, ...arrMd].map((k) => Number(k.kategori_id)));
+      setAllowedKategoriIds(ids);
+    } catch (e) {
+      console.error("Gagal memuat kategori pemasukan/modal:", e);
+      setAllowedKategoriIds(new Set());
+      toastr?.error?.("Gagal memuat kategori untuk filter produk.", "Gagal");
+    }
+  }
+
+  // pastikan produk ter-cache saat masuk mode edit
+  async function ensureCachedProducts(productIds = []) {
+    const missing = productIds.filter((id) => !produkCache.has(id));
+    if (!missing.length) return;
+    try {
+      const fetched = await Promise.all(missing.map((id) => getProductById(id)));
+      const next = new Map(produkCache);
+      fetched.forEach((res) => {
+        const p = res?.data?.data || res?.data || null;
+        if (p?.produk_id) next.set(p.produk_id, p);
+      });
+      setProdukCache(next);
+    } catch (e) {
+      // abaikan quietly
+    }
+  }
+
+  // ====== items handlers
+  const subtot = (row) => Number(row.qty || 0) * Number(row.harga_satuan || 0);
+  const total = useMemo(() => items.reduce((s, r) => s + subtot(r), 0), [items]);
+
   const addRow = () => {
     setItems((arr) => [...arr, { produk_id: 0, qty: 1, harga_satuan: 0 }]);
     setHargaDisplay((d) => [...d, ""]);
@@ -173,9 +407,6 @@ export default function PendapatanPage() {
     const qty = Math.max(0, Number(val || 0));
     updateRow(idx, { qty });
   };
-  const onProdukChange = (idx, val) => {
-    updateRow(idx, { produk_id: Number(val || 0) });
-  };
   const onHargaChange = (idx, e) => {
     const raw = e.target.value.replace(/\D/g, "");
     const num = Number(raw || 0);
@@ -186,36 +417,39 @@ export default function PendapatanPage() {
     setHargaDisplay((d) => d.map((s, i) => (i === idx ? formatRupiah(items[idx].harga_satuan) : s)));
   };
 
-  // ====== CRUD pendapatan ======
+  // ProductPicker open/close/select
+  const openPicker = (idx) => {
+    setPickerRowIndex(idx);
+    setPickerOpen(true);
+  };
+  const closePicker = () => {
+    setPickerOpen(false);
+    setPickerRowIndex(null);
+  };
+  const handleSelectProduct = (p) => {
+    if (pickerRowIndex == null) return;
+    updateRow(pickerRowIndex, { produk_id: Number(p.produk_id || 0) });
+    setProdukCache((m) => {
+      const next = new Map(m);
+      next.set(p.produk_id, p);
+      return next;
+    });
+    closePicker();
+  };
+
+  // ====== CRUD
   async function submitLaporan(e) {
     e.preventDefault();
 
-    // validasi → pakai toastr.warning
-    if (!form.akun_id) {
-      toastr.warning("Pilih Akun Kas dulu.", "Perhatian");
-      return;
-    }
-    if (!form.tanggal) {
-      toastr.warning("Isi tanggal dulu.", "Perhatian");
-      return;
-    }
-    if (items.length === 0) {
-      toastr.warning("Tambahkan minimal 1 produk.", "Perhatian");
-      return;
-    }
+    // validasi singkat
+    if (!form.akun_id) return toastr?.warning?.("Pilih Akun Kas dulu.", "Perhatian");
+    if (!form.tanggal) return toastr?.warning?.("Isi tanggal dulu.", "Perhatian");
+    if (items.length === 0) return toastr?.warning?.("Tambahkan minimal 1 produk.", "Perhatian");
     for (const r of items) {
-      if (!r.produk_id) {
-        toastr.warning("Ada baris tanpa produk yang dipilih.", "Perhatian");
-        return;
-      }
-      if (!r.qty || r.qty <= 0) {
-        toastr.warning("Qty setiap baris harus > 0.", "Perhatian");
-        return;
-      }
-      if (!r.harga_satuan || r.harga_satuan <= 0) {
-        toastr.warning("Harga satuan setiap baris harus > 0.", "Perhatian");
-        return;
-      }
+      if (!r.produk_id) return toastr?.warning?.("Ada baris tanpa produk.", "Perhatian");
+      if (!r.qty || r.qty <= 0) return toastr?.warning?.("Qty harus > 0.", "Perhatian");
+      if (!r.harga_satuan || r.harga_satuan <= 0)
+        return toastr?.warning?.("Harga satuan harus > 0.", "Perhatian");
     }
 
     const details = items.map((r) => ({
@@ -225,13 +459,13 @@ export default function PendapatanPage() {
       subtotal: subtot(r),
     }));
 
-    // toast pending
-    const pendingToast = toastr.info(editingId ? "Menyimpan perubahan…" : "Menyimpan…", "", {
-      timeOut: 0,
-      extendedTimeOut: 0,
-      tapToDismiss: false,
-      closeButton: true,
-    });
+    const pendingToast =
+      toastr?.info?.(editingId ? "Menyimpan perubahan…" : "Menyimpan…", "", {
+        timeOut: 0,
+        extendedTimeOut: 0,
+        tapToDismiss: false,
+        closeButton: true,
+      }) ?? null;
 
     try {
       if (editingId) {
@@ -258,8 +492,8 @@ export default function PendapatanPage() {
         });
       }
 
-      toastr.clear(pendingToast);
-      toastr.success("Pendapatan berhasil disimpan.", "Berhasil");
+      toastr?.clear?.(pendingToast);
+      toastr?.success?.("Pendapatan berhasil disimpan.", "Berhasil");
 
       setForm({ akun_id: 0, deskripsi: "", tanggal: "", share_to_klaster: false });
       setItems([{ produk_id: 0, qty: 1, harga_satuan: 0 }]);
@@ -270,11 +504,8 @@ export default function PendapatanPage() {
       loadInitialData();
     } catch (err) {
       console.error("Gagal simpan pendapatan:", err);
-      toastr.clear(pendingToast);
-      toastr.error(
-        err?.response?.data?.message || "Gagal menyimpan pendapatan.",
-        "Gagal"
-      );
+      toastr?.clear?.(pendingToast);
+      toastr?.error?.(err?.response?.data?.message || "Gagal menyimpan pendapatan.", "Gagal");
     }
   }
 
@@ -311,6 +542,7 @@ export default function PendapatanPage() {
         setItems(its);
         setHargaDisplay(its.map((x) => (x.harga_satuan ? formatRupiah(x.harga_satuan) : "")));
         setReplaceItems(false);
+        await ensureCachedProducts(its.map((x) => x.produk_id).filter(Boolean));
       } else {
         setItems([{ produk_id: 0, qty: 1, harga_satuan: 0 }]);
         setHargaDisplay([""]);
@@ -318,7 +550,7 @@ export default function PendapatanPage() {
       }
     } catch (e) {
       console.error("Gagal ambil detail laporan:", e);
-      toastr.error("Gagal memuat detail laporan.", "Gagal");
+      toastr?.error?.("Gagal memuat detail laporan.", "Gagal");
       setForm({
         akun_id: Number(row.akun_id) || 0,
         deskripsi: row.deskripsi || "",
@@ -343,26 +575,24 @@ export default function PendapatanPage() {
       return;
     }
 
-    const pendingToast = toastr.info("Menghapus…", "", {
-      timeOut: 0,
-      extendedTimeOut: 0,
-      tapToDismiss: false,
-      closeButton: true,
-    });
+    const pendingToast =
+      toastr?.info?.("Menghapus…", "", {
+        timeOut: 0,
+        extendedTimeOut: 0,
+        tapToDismiss: false,
+        closeButton: true,
+      }) ?? null;
 
     try {
       setDeletingId(row.id_laporan);
       await deletePendapatan(token, row.id_laporan);
-      toastr.clear(pendingToast);
-      toastr.success("Pendapatan berhasil dihapus.", "Berhasil");
+      toastr?.clear?.(pendingToast);
+      toastr?.success?.("Pendapatan berhasil dihapus.", "Berhasil");
       await loadInitialData();
     } catch (err) {
       console.error("Gagal hapus pendapatan:", err);
-      toastr.clear(pendingToast);
-      toastr.error(
-        err?.response?.data?.message || "Gagal menghapus pendapatan.",
-        "Gagal"
-      );
+      toastr?.clear?.(pendingToast);
+      toastr?.error?.(err?.response?.data?.message || "Gagal menghapus pendapatan.", "Gagal");
     } finally {
       setDeletingId(null);
     }
@@ -373,13 +603,13 @@ export default function PendapatanPage() {
       await navigator.clipboard.writeText(editingId);
       setCopied(true);
       setTimeout(() => setCopied(false), 1200);
-      toastr.success("ID laporan disalin ke clipboard.", "Tersalin");
+      toastr?.success?.("ID laporan disalin ke clipboard.", "Tersalin");
     } catch {
-      toastr.error("Gagal menyalin ID.", "Gagal");
+      toastr?.error?.("Gagal menyalin ID.", "Gagal");
     }
   };
 
-  // ====== derived ======
+  // ====== derived
   const pendapatanFiltered = useMemo(() => {
     if (filterShare === "own") return pendapatan.filter((x) => !isShared(x));
     if (filterShare === "shared") return pendapatan.filter((x) => isShared(x));
@@ -404,7 +634,13 @@ export default function PendapatanPage() {
     };
   }, [transaksiTerakhir, akunKas]);
 
-  // ====== render ======
+  const productName = (id) => {
+    if (!id) return "";
+    const p = produkCache.get(id);
+    return p?.nama || `Produk #${id}`;
+  };
+
+  // ====== render
   return (
     <>
       {/* Header */}
@@ -448,9 +684,7 @@ export default function PendapatanPage() {
       {/* Transaksi Terakhir */}
       {transaksiTerakhir && (
         <div className="bg-white rounded-xl shadow-md p-4 md:p-6 mb-6">
-          <h3 className="text-lg font-semibold mb-4 border-b pb-2">
-            Transaksi Terakhir
-          </h3>
+          <h3 className="text-lg font-semibold mb-4 border-b pb-2">Transaksi Terakhir</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <p className="text-xs md:text-sm text-gray-500">Tanggal</p>
@@ -481,9 +715,7 @@ export default function PendapatanPage() {
             </div>
             <div>
               <p className="text-xs md:text-sm text-gray-500">Share</p>
-              <p className="font-medium">
-                {isShared(transaksiTerakhir) ? "Klaster" : "Pribadi"}
-              </p>
+              <p className="font-medium">{isShared(transaksiTerakhir) ? "Klaster" : "Pribadi"}</p>
             </div>
           </div>
         </div>
@@ -524,9 +756,7 @@ export default function PendapatanPage() {
                     </button>
                     <button
                       className={`px-2 py-1 rounded bg-rose-600 text-white text-sm ${
-                        deletingId === item.id_laporan
-                          ? "opacity-60 cursor-not-allowed"
-                          : ""
+                        deletingId === item.id_laporan ? "opacity-60 cursor-not-allowed" : ""
                       }`}
                       onClick={() => onDelete(item)}
                       disabled={deletingId === item.id_laporan}
@@ -560,29 +790,18 @@ export default function PendapatanPage() {
               {pendapatanFiltered.map((item, i) => (
                 <tr key={item.id_laporan} className="border-t">
                   <td className="p-2">{i + 1}</td>
-                  <td className="p-2">
-                    Rp {item.debit?.toLocaleString("id-ID")}
-                  </td>
+                  <td className="p-2">Rp {item.debit?.toLocaleString("id-ID")}</td>
                   <td className="p-2">{item.deskripsi || "-"}</td>
-                  <td className="p-2">
-                    {new Date(item.tanggal).toLocaleDateString("id-ID")}
-                  </td>
-                  <td className="p-2">
-                    {isShared(item) ? "Klaster" : "Pribadi"}
-                  </td>
+                  <td className="p-2">{new Date(item.tanggal).toLocaleDateString("id-ID")}</td>
+                  <td className="p-2">{isShared(item) ? "Klaster" : "Pribadi"}</td>
                   <td className="p-2">
                     <div className="flex gap-2">
-                      <button
-                        className="px-2 py-1 rounded bg-amber-500 text-white"
-                        onClick={() => onEdit(item)}
-                      >
+                      <button className="px-2 py-1 rounded bg-amber-500 text-white" onClick={() => onEdit(item)}>
                         Edit
                       </button>
                       <button
                         className={`px-2 py-1 rounded bg-rose-600 text-white ${
-                          deletingId === item.id_laporan
-                            ? "opacity-60 cursor-not-allowed"
-                            : ""
+                          deletingId === item.id_laporan ? "opacity-60 cursor-not-allowed" : ""
                         }`}
                         onClick={() => onDelete(item)}
                         disabled={deletingId === item.id_laporan}
@@ -633,9 +852,7 @@ export default function PendapatanPage() {
               {/* Akun Kas */}
               <select
                 value={form.akun_id}
-                onChange={(e) =>
-                  setForm({ ...form, akun_id: Number(e.target.value) })
-                }
+                onChange={(e) => setForm({ ...form, akun_id: Number(e.target.value) })}
                 className="block w-full border rounded px-3 py-2"
                 required
               >
@@ -643,9 +860,7 @@ export default function PendapatanPage() {
                 {akunKas.map((a) => (
                   <option key={a.akun_id} value={a.akun_id}>
                     {a.nama}{" "}
-                    {typeof a.saldo_akhir === "number"
-                      ? `— Rp ${a.saldo_akhir.toLocaleString("id-ID")}`
-                      : ""}
+                    {typeof a.saldo_akhir === "number" ? `— Rp ${a.saldo_akhir.toLocaleString("id-ID")}` : ""}
                   </option>
                 ))}
               </select>
@@ -677,20 +892,21 @@ export default function PendapatanPage() {
                     <div className="md:hidden space-y-2">
                       <div>
                         <label className="text-xs text-gray-500">Produk</label>
-                        <select
-                          className="w-full border rounded px-3 py-2"
-                          value={r.produk_id}
-                          onChange={(e) => onProdukChange(idx, e.target.value)}
-                          required
-                        >
-                          <option value={0}>Pilih produk</option>
-                          {produkPemasukan.map((p) => (
-                            <option key={p.produk_id} value={p.produk_id}>
-                              {p.nama}
-                              {p.kategori_nama ? ` — ${p.kategori_nama}` : ""}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="flex gap-2">
+                          <input
+                            className="w-full border rounded px-3 py-2"
+                            readOnly
+                            placeholder="Belum dipilih"
+                            value={r.produk_id ? productName(r.produk_id) : ""}
+                          />
+                          <button
+                            type="button"
+                            className="px-2 py-1 rounded bg-indigo-600 text-white"
+                            onClick={() => openPicker(idx)}
+                          >
+                            Pilih
+                          </button>
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
@@ -705,9 +921,7 @@ export default function PendapatanPage() {
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-gray-500">
-                            Harga Satuan (Rp)
-                          </label>
+                          <label className="text-xs text-gray-500">Harga Satuan (Rp)</label>
                           <input
                             type="text"
                             className="w-full border rounded px-3 py-2"
@@ -733,20 +947,21 @@ export default function PendapatanPage() {
                     {/* Desktop: grid */}
                     <div className="hidden md:grid grid-cols-12 gap-2 items-center">
                       <div className="col-span-6">
-                        <select
-                          className="w-full border rounded px-2 py-1"
-                          value={r.produk_id}
-                          onChange={(e) => onProdukChange(idx, e.target.value)}
-                          required
-                        >
-                          <option value={0}>Pilih produk</option>
-                          {produkPemasukan.map((p) => (
-                            <option key={p.produk_id} value={p.produk_id}>
-                              {p.nama}
-                              {p.kategori_nama ? ` — ${p.kategori_nama}` : ""}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="flex gap-2">
+                          <input
+                            className="w-full border rounded px-2 py-1"
+                            readOnly
+                            placeholder="Belum dipilih"
+                            value={r.produk_id ? productName(r.produk_id) : ""}
+                          />
+                          <button
+                            type="button"
+                            className="px-2 py-1 rounded bg-indigo-600 text-white"
+                            onClick={() => openPicker(idx)}
+                          >
+                            Pilih
+                          </button>
+                        </div>
                       </div>
                       <div className="col-span-2">
                         <input
@@ -790,9 +1005,7 @@ export default function PendapatanPage() {
                 <input
                   type="checkbox"
                   checked={form.share_to_klaster}
-                  onChange={(e) =>
-                    setForm({ ...form, share_to_klaster: e.target.checked })
-                  }
+                  onChange={(e) => setForm({ ...form, share_to_klaster: e.target.checked })}
                 />
                 Bagikan ke klaster
               </label>
@@ -812,8 +1025,7 @@ export default function PendapatanPage() {
                   )}
                 </div>
                 <div className="font-semibold">
-                  Total:{" "}
-                  <span className="text-green-700">{formatRupiah(total)}</span>
+                  Total: <span className="text-green-700">{formatRupiah(total)}</span>
                 </div>
               </div>
 
@@ -821,9 +1033,7 @@ export default function PendapatanPage() {
                 className="border rounded px-3 py-2"
                 placeholder="Deskripsi pendapatan..."
                 value={form.deskripsi}
-                onChange={(e) =>
-                  setForm({ ...form, deskripsi: e.target.value })
-                }
+                onChange={(e) => setForm({ ...form, deskripsi: e.target.value })}
               />
 
               <input
@@ -857,6 +1067,14 @@ export default function PendapatanPage() {
           </div>
         </div>
       )}
+
+      {/* Product Picker Modal */}
+      <ProductPicker
+        isOpen={pickerOpen}
+        onClose={closePicker}
+        onSelect={handleSelectProduct}
+        allowedKategoriIds={allowedKategoriIds}
+      />
     </>
   );
 }

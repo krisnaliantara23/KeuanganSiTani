@@ -8,12 +8,32 @@ const auth = () => ({
 
 export const getArusKasByAkun = (
   token,
-  { akun_id, start, end, page = 1, limit = 100 }
+  {
+    akun_id,
+    start,
+    end,
+    page = 1,
+    limit = 100,
+    share = "all",        // all | own | cluster
+    klaster_id,           // wajib jika share === 'cluster' (dan user punya klaster)
+    id_user,              // opsional (admin bisa lihat user lain)
+  } = {}
 ) => {
-  return axios.get(`${API_KEUANGAN}/keuangan/arus-kas/akun`, {
-    ...auth(token),
-    params: { akun_id, start, end, page, limit },
-  });
+  if (!akun_id) throw new Error("akun_id wajib diisi");
+
+  const params = { akun_id, page, limit };
+  if (start) params.start = start;
+  if (end)   params.end   = end;
+  if (share) params.share = share;
+  if (share === "cluster" && klaster_id != null) {
+    params.klaster_id = String(klaster_id);
+  }
+  if (id_user) params.id_user = String(id_user);
+
+  return axios.get(
+    `${API_KEUANGAN}/keuangan/arus-kas/akun`,
+    { headers: { Authorization: `Bearer ${token}` }, params }
+  );
 };
 
 export const listAkunKas = async (params = {}) => {

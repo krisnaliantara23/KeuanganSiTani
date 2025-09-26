@@ -4,7 +4,8 @@ const API_URL = "https://be-laporankeuangan.up.railway.app/api/produk";
 
 export const getProducts = async (params = {}) => {
   return axios.get(`${API_URL}/saya`, { 
-    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+    params,
    });
 };
 
