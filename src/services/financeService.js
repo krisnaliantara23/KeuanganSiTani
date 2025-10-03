@@ -25,8 +25,14 @@ export async function getPendapatan(token, params = {}) {
   return res.data.data;
 }
 
-export async function getPengeluaran(token) {
-  const res = await axios.get(`${API_URL}/laporan?jenis=pengeluaran`, getAuthHeader(token));
+export async function getPengeluaran(token, params = {}) {
+  const res = await axios.get(
+    `${API_URL}/laporan`,
+    {
+      ...getAuthHeader(token),
+      params: { ...params, jenis: "pengeluaran" },
+    }
+  );
   return res.data.data;
 }
 

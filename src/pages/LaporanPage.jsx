@@ -90,8 +90,9 @@ export default function LaporanPage() {
 
   async function loadLabaRugi() {
     try {
-      const listPend = await getPendapatan(token);   // array laporan pemasukan
-      const listPeng = await getPengeluaran(token);  // array laporan pengeluaran
+      const params = { id_user: userId };
+      const listPend = await getPendapatan(token, params);   // array laporan pemasukan
+      const listPeng = await getPengeluaran(token, params);  // array laporan pengeluaran
       setPendapatanAll(Array.isArray(listPend) ? listPend : []);
       setPengeluaranAll(Array.isArray(listPeng) ? listPeng : []);
     } catch (e) {
@@ -170,15 +171,9 @@ export default function LaporanPage() {
   }
 
   // ---------- derived (FE filter Laba Rugi) ----------
-  const passShare = (row) =>
-    shareFilter === "all"
-      ? true
-      : shareFilter === "own"
-      ? isClusterNull(row?.klaster_id)
-      : !isClusterNull(row?.klaster_id);
-
-  const pendapatan = (pendapatanAll || []).filter(passShare);
-  const pengeluaran = (pengeluaranAll || []).filter(passShare);
+  const pendapatan = pendapatanAll || [];
+  const pengeluaran = pengeluaranAll || [];
+  
 
   const totalPendapatan = pendapatan.reduce((s, it) => s + Number(it.debit || 0), 0);
   const totalPengeluaran = pengeluaran.reduce((s, it) => s + Number(it.kredit || 0), 0);

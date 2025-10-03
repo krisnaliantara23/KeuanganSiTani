@@ -332,7 +332,7 @@ export default function PendapatanPage() {
 
   async function loadInitialData() {
     try {
-      const data = await getPendapatan(token, { user_id: userId });
+      const data = await getPendapatan(token, { id_user: userId });
       setPendapatan(data || []);
     } catch (err) {
       console.error("Gagal ambil pendapatan:", err);

@@ -9,6 +9,7 @@ import {
 } from "../services/financeService";
 import { getProducts, getProductById } from "../services/productService";
 import { listAkunKas } from "../services/akunKasService";
+import { getCurrentUser } from "../lib/auth";
 import { listKategoriScopev2 } from "../services/kategoriService";
 import "../styles/pendapatan.css";
 
@@ -278,6 +279,8 @@ function ProductPicker({
 
 export default function PengeluaranPage() {
   const token = localStorage.getItem("token");
+  const me = getCurrentUser() || {};
+  const userId = me.user_id || null;
 
   // ===== State (khusus pengeluaran)
   const [pengeluaran, setPengeluaran] = useState([]);
@@ -322,7 +325,7 @@ export default function PengeluaranPage() {
 
   async function loadInitialData() {
     try {
-      const data = await getPengeluaran(token);
+      const data = await getPengeluaran(token, { id_user: userId });
       setPengeluaran(data || []);
     } catch (err) {
       console.error("Gagal ambil pengeluaran:", err);
