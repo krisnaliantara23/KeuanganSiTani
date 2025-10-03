@@ -515,7 +515,7 @@ export default function AturProdukPage() {
               className="bg-indigo-600 text-white px-3 py-2 md:px-4 md:py-2 rounded text-sm md:text-base"
               onClick={openCreateProduk}
             >
-              + Tambah Kategori/Produk
+              + Tambah Produk
             </button>
             <button
               className="bg-sky-600 text-white px-3 py-2 md:px-4 md:py-2 rounded text-sm md:text-base"
@@ -540,7 +540,7 @@ export default function AturProdukPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* ====== Produk ====== */}
         <div className="bg-white rounded-xl shadow-md p-4 md:p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center flex-col md:flex-row justify-between mb-4">
             <h3 className="text-lg font-semibold">Kelola Produk</h3>
             <div className="flex gap-2">
               <input

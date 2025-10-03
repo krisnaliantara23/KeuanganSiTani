@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { getPendapatan, getPengeluaran } from "../services/financeService";
 import { getProducts } from "../services/productService";
 import SummaryCard from "../component/SummaryCard";
+import { getCurrentUser } from "../lib/auth";
 import {
   BarChart,
   Bar,
@@ -17,6 +18,7 @@ import {
   Cell,
 } from "recharts";
 import { ArrowUpRight, ArrowDownRight, DollarSign } from "lucide-react";
+import { i } from "framer-motion/client";
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#AF19FF", "#FF1919"];
 
@@ -27,6 +29,9 @@ export default function BerandaPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+    const me = getCurrentUser() || {};
+    const userId = me.user_id || null;
+
   const token = localStorage.getItem("token");
   const user = localStorage.getItem("user");
   const username = user ? JSON.parse(user).username : "Pengguna";
@@ -35,9 +40,10 @@ export default function BerandaPage() {
     async function loadData() {
       try {
         setLoading(true);
+        const params = { id_user: userId };
         const [dataPendapatan, dataPengeluaran, productData] = await Promise.all([
-          getPendapatan(token),
-          getPengeluaran(token),
+          getPendapatan(token, params),
+          getPengeluaran(token, params),
           getProducts(),
         ]);
         setPendapatan(Array.isArray(dataPendapatan) ? dataPendapatan : []);
@@ -253,7 +259,7 @@ export default function BerandaPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
+        {/* <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
           <h3 className="text-lg font-semibold mb-4">Komposisi Pengeluaran</h3>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
@@ -276,8 +282,8 @@ export default function BerandaPage() {
               <Legend />
             </PieChart>
           </ResponsiveContainer>
-        </div>
-        <div className="lg:col-span-3 bg-white p-6 rounded-xl shadow-md">
+        </div> */}
+        {/* <div className="lg:col-span-3 bg-white p-6 rounded-xl shadow-md">
           <h3 className="text-lg font-semibold mb-4">Analisis per Komoditas</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={commodityAnalysisData} layout="vertical">
@@ -291,7 +297,7 @@ export default function BerandaPage() {
               <Bar dataKey="Keuntungan" fill="#3b82f6" />
             </BarChart>
           </ResponsiveContainer>
-        </div>
+        </div> */}
       </div>
     </div>
   );
