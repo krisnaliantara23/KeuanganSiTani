@@ -35,13 +35,15 @@ const formatRupiah = (v) =>
 // ===== helper panggil produk ber-parameter (tanpa ubah service) =====
 const API_BASE = "https://be-laporankeuangan.up.railway.app/api";
 
-async function fetchProdukPaged({ page = 1, limit = 10, scope = "mine", search = "" }) {
+async function fetchProdukPaged({ page = 1, limit = 10, scope = "mine", search = "", user_id = null }) {
   const token = localStorage.getItem("token");
   const params = new URLSearchParams();
   params.set("page", String(page));
   params.set("limit", String(limit));
+  params.set("user_id", String(user_id));
   if (scope) params.set("scope", scope);
   if (search?.trim()) params.set("search", search.trim());
+  if (user_id) params.set("user_id", user_id);
   const url = `${API_BASE}/produk?${params.toString()}`;
   return axios.get(url, { headers: { Authorization: `Bearer ${token}` } });
 }
@@ -155,8 +157,9 @@ export default function AturProdukPage() {
       const res = await fetchProdukPaged({
         page: prodPage,
         limit: prodLimit,
-        scope: produkScope,
+        scope: "mine",
         search: produkSearch,
+        user_id: userId,
       });
       const payload = res?.data || {};
       const list = Array.isArray(payload.data) ? payload.data : [];
