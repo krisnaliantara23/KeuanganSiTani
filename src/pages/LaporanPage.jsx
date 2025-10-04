@@ -87,12 +87,24 @@ export default function LaporanPage() {
       setAkunKas([]);
     }
   }
-
+  useEffect(() => {
+  if (activeTab === "labaRugi") {
+    loadLabaRugi();
+  }
+}, [shareFilter, activeTab]);
   async function loadLabaRugi() {
     try {
-      const params = { id_user: userId };
-      const listPend = await getPendapatan(token, params);   // array laporan pemasukan
-      const listPeng = await getPengeluaran(token, params);  // array laporan pengeluaran
+      console.log(shareFilter)
+      const params = { id_user: userId, klaster_id: undefined };
+      if (shareFilter === "cluster" && me.klaster_id !== null) {
+        params.klaster_id = me.klaster_id;
+      }
+      let listPend = await getPendapatan(token, params);   // array laporan pemasukan
+      let listPeng = await getPengeluaran(token, params);  // array laporan pengeluaran
+      if (shareFilter === "own") {
+        listPend = listPend.filter(item => isClusterNull(item.klaster_id));
+        listPeng = listPeng.filter(item => isClusterNull(item.klaster_id));
+      }
       setPendapatanAll(Array.isArray(listPend) ? listPend : []);
       setPengeluaranAll(Array.isArray(listPeng) ? listPeng : []);
     } catch (e) {
