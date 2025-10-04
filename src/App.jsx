@@ -18,7 +18,7 @@ import PengeluaranPage from "./pages/PengeluaranPage";
 import LaporanPage from "./pages/LaporanPage";
 import PengaturanPage from "./pages/PengaturanPage";
 import AturProdukPage from "./pages/AturProdukPage";
-import FAQ from "./component/FAQ";
+import FAQ from "./component/FAQ.jsx";
 
 // Components
 import Layout from "./component/Layout";

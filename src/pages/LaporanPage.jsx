@@ -603,7 +603,7 @@ export default function LaporanPage() {
             </option>
           ))}
         </select>
-        <input
+        {/* <input
           type="date"
           className="border rounded px-3 py-2"
           value={startDate}
@@ -617,7 +617,7 @@ export default function LaporanPage() {
         />
         <button className="px-4 py-2 bg-gray-100 rounded border" onClick={loadArusKasAkun}>
           Terapkan
-        </button>
+        </button> */}
       </div>
 
       {/* Ringkasan */}
@@ -701,7 +701,7 @@ export default function LaporanPage() {
       <h3 className="text-xl font-semibold mb-4">Laporan Neraca</h3>
 
       <div className="flex flex-col md:flex-row gap-3 mb-4">
-        <input
+        {/* <input
           type="date"
           className="border rounded px-3 py-2"
           value={neracaStart}
@@ -715,7 +715,7 @@ export default function LaporanPage() {
         />
         <button type="button" className="px-4 py-2 bg-gray-100 rounded border" onClick={loadNeraca}>
           Muat Neraca
-        </button>
+        </button> */}
       </div>
 
       {neracaLoading ? (
