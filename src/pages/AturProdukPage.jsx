@@ -24,7 +24,7 @@ import { getCurrentUser } from "../lib/auth";
 
 // util kecil
 const formatRupiah = (v) =>
-  !v
+  (v === null || v === undefined || v === "")
     ? ""
     : new Intl.NumberFormat("id-ID", {
         style: "currency",

@@ -15,7 +15,7 @@ import "../styles/pendapatan.css";
 
 // ===== Utils
 const formatRupiah = (v) =>
-  !v
+  (v === null || v === undefined || v === "")
     ? ""
     : new Intl.NumberFormat("id-ID", {
         style: "currency",

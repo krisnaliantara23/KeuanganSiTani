@@ -28,7 +28,7 @@ if (toastr) {
 }
 
 const formatRupiah = (value) =>
-  !value
+  (value === null || value === undefined || value === "")
     ? ""
     : new Intl.NumberFormat("id-ID", {
         style: "currency",
