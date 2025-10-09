@@ -763,7 +763,7 @@ export default function LaporanPage() {
   return (
     <div className="p-6">
       {/* Header + Export */}
-      <div className="bg-white rounded-xl shadow-md p-6 mb-6 flex justify-between items-center">
+      <div className="bg-white rounded-xl shadow-md p-6 mb-6 flex flex-col md: flex-row justify-between items-center">
         <h2 className="text-2xl font-bold">Laporan Keuangan</h2>
 
         {/* Global Share Filter + Export */}

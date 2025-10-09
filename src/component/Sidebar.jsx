@@ -17,7 +17,7 @@ export default function Sidebar({ isOpen, onClose }) {
 
   const baseLinkClass =
     "flex items-center w-full p-3 rounded-lg text-gray-700 hover:bg-green-100 hover:text-green-800 transition-colors duration-200";
-  const activeLinkClass = "bg-green-600 text-white font-bold hover:bg-green-700";
+  const activeLinkClass = "bg-green-600 text-white font-bold hover:bg-[#`004030]";
 
   return (
     <>
