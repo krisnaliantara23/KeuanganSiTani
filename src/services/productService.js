@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "https://be-laporankeuangan.up.railway.app/api/produk";
+const API_URL = "backendsitani-production.up.railway.app/api/produk";
 
 export const getProducts = async (params = {}) => {
   return axios.get(`${API_URL}/saya`, { 

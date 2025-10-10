@@ -435,7 +435,7 @@ export default function PengeluaranPage() {
     for (const r of items) {
       if (!r.produk_id) return alert("Ada baris tanpa produk.");
       if (!r.qty || r.qty <= 0) return alert("Qty harus > 0.");
-      if (!r.harga_satuan || r.harga_satuan <= 0) return alert("Harga satuan harus > 0.");
+      if (r.harga_satuan == null || r.harga_satuan < 0) return alert("Harga satuan tidak boleh negatif.");
     }
 
     const mappedItems = items.map((r) => ({

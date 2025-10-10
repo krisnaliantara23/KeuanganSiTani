@@ -1,7 +1,7 @@
 // src/services/authService.js
 import axios from "axios";
 
-const API_URL = "https://be-laporankeuangan.up.railway.app/api";
+const API_URL = "https://backendsitani-production.up.railway.app/api";
 
 const authHeader = (token) => ({ headers: { Authorization: `Bearer ${token}` } });
 

@@ -71,7 +71,7 @@ export default function RegisterPage() {
       toastr.info("Mendaftarkan akun Anda..."); // UPDATE: toastr ditambahkan
 
       const res = await axios.post(
-        "https://be-laporankeuangan.up.railway.app/api/auth/register",
+        "https://backendsitani-production.up.railway.app/api/auth/register",
         {
           nama: form.nama,
           email: form.email,

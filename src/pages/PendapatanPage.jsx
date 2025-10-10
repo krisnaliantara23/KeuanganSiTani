@@ -448,8 +448,8 @@ export default function PendapatanPage() {
     for (const r of items) {
       if (!r.produk_id) return toastr?.warning?.("Ada baris tanpa produk.", "Perhatian");
       if (!r.qty || r.qty <= 0) return toastr?.warning?.("Qty harus > 0.", "Perhatian");
-      if (!r.harga_satuan || r.harga_satuan <= 0)
-        return toastr?.warning?.("Harga satuan harus > 0.", "Perhatian");
+      if (r.harga_satuan == null || r.harga_satuan < 0)
+        return toastr?.warning?.("Harga satuan tidak boleh negatif.", "Perhatian");
     }
 
     const details = items.map((r) => ({

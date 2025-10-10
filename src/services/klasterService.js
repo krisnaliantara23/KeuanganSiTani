@@ -1,7 +1,7 @@
 // src/services/klasterService.js
 import axios from "axios";
 
-const API_URL = "https://be-laporankeuangan.up.railway.app/api";
+const API_URL = "https://backendsitani-production.up.railway.app/api";
 
 const getAuthHeader = (token) => ({ headers: { Authorization: `Bearer ${token}` } });
 
