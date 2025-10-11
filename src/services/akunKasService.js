@@ -1,7 +1,7 @@
 import axios from "axios";
 
-const API_URL = "https://backendsitani-production.up.railway.app/api/akun-kas";
-const API_KEUANGAN = "https://backendsitani-production.up.railway.app/api";
+const API_URL = "https://laporan-keuangan-tani-be-production.up.railway.app/api/akun-kas";
+const API_KEUANGAN = "https://laporan-keuangan-tani-be-production.up.railway.app/api";
 const auth = () => ({
   headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
 });

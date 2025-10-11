@@ -51,7 +51,7 @@ export default function LoginPage() {
     try {
       setLoading(true);
       const res = await axios.post(
-        "https://backendsitani-production.up.railway.app/api/auth/login",
+        "https://laporan-keuangan-tani-be-production.up.railway.app/api/auth/login",
         {
           identifier: form.email,
           password: form.password,

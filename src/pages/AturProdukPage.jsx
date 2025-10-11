@@ -33,7 +33,7 @@ const formatRupiah = (v) =>
       }).format(v);
 
 // ===== helper panggil produk ber-parameter (tanpa ubah service) =====
-const API_BASE = "https://backendsitani-production.up.railway.app/api";
+const API_BASE = "https://laporan-keuangan-tani-be-production.up.railway.app/api";
 
 async function fetchProdukPaged({ page = 1, limit = 10, scope = "mine", search = "", user_id = null }) {
   const token = localStorage.getItem("token");

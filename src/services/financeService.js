@@ -1,9 +1,9 @@
 // src/services/financeService.js
 import axios from "axios";
 
-const API_URL = "https://backendsitani-production.up.railway.app/api/keuangan";
+const API_URL = "https://laporan-keuangan-tani-be-production.up.railway.app/api/keuangan";
 // const API_NERACA = "http://localhost:5173/api/neraca";
-const API_NERACA = "https://backendsitani-production.up.railway.app/api/neraca";
+const API_NERACA = "https://laporan-keuangan-tani-be-production.up.railway.app/api/neraca";
 
 function getAuthHeader(token) {
   return { headers: { Authorization: `Bearer ${token}` } };

@@ -1,6 +1,6 @@
 // src/services/klasterInviteService.js
 import axios from "axios";
-const API_URL = "https://backendsitani-production.up.railway.app/api/invite";
+const API_URL = "https://laporan-keuangan-tani-be-production.up.railway.app/api/invite";
 
 const authHeader = (token) => ({ headers: { Authorization: `Bearer ${token}` } });
 

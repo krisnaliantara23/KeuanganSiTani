@@ -1,6 +1,6 @@
 // services/kategoriService.js
 import axios from "axios"; // paka
-const API_KATEGORI = "https://backendsitani-production.up.railway.app/api/kategori";
+const API_KATEGORI = "https://laporan-keuangan-tani-be-production.up.railway.app/api/kategori";
 
 
 const auth = () => ({
